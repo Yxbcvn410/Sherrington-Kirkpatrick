@@ -48,20 +48,21 @@ string composeThreadStatus(int id, double state, int pbLen) {
 	if (state == -1)
 		os << "Dead.";
 	else {
-		os << (int) (state * 100);
-		os << "% \t[";
+		os << "\t[";
 		for (int i = 0; i < pbLen; i++)
 			if (i / (double) pbLen < state)
 				os << "#";
 			else
 				os << "-";
-		os << "]";
+		os << "] ";
+		os << (int) (state * 100);
+		os << "%";
 	}
 	return os.str();
 }
 
 int main(int argc, char* argv[]) {
-	cout << "Calc program, version 2.4, build 11" << endl;
+	cout << "Calc program, version 2.4, build 12" << endl;
 	//Init rand
 	srand(time(0));
 
