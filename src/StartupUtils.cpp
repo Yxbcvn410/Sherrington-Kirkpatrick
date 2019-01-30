@@ -79,7 +79,7 @@ bool StartupUtils::grabFromFile(double& startRef, double& endRef,
 			needSave = true;
 		} else if (s == "&wdir" || s == "&wd") {
 			ifs >> wDirRef;
-		} else if (s == "&mloc") {
+		} else if (s == "&mloc" || s == "&ml") {
 			needSave = false;
 			string loc;
 			ifs >> loc;
@@ -91,7 +91,7 @@ bool StartupUtils::grabFromFile(double& startRef, double& endRef,
 				return false;
 			}
 			modelRef = Matrix(ifstream(loc));
-		} else {
+		}else if(s[0]!='#') {
 			cout << "Error while parsing config:\n"
 					<< "Unknown command at config: " << s << endl;
 			return false;
