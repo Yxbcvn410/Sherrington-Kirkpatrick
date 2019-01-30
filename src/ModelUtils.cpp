@@ -1,5 +1,5 @@
 /*
- * ModelFrontend.cpp
+ * ModelUtils.cpp
  *
  *  Created on: Jan 19, 2019
  *      Author: alexander
@@ -37,7 +37,7 @@ void ModelUtils::Stabilize(Matrix matrix, Spinset spinset){
 void ModelUtils::PullToZeroTemp(Matrix matrix, Spinset spinset){
 	ModelUtils::Stabilize(matrix, spinset);
 	while (spinset.temp>0){
-		spinset.temp-=0.005;
+		spinset.temp-=0.01;
 		ModelUtils::Stabilize(matrix, spinset);
 	}
 	spinset.temp=0;

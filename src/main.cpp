@@ -62,7 +62,7 @@ string composeThreadStatus(int id, double state, int pbLen) {
 }
 
 int main(int argc, char* argv[]) {
-	cout << "Calc program, version 2.4, build 12" << endl;
+	cout << "Calc program by Yxbcvn410, version 2.4, build 13" << endl;
 	//Init rand
 	srand(time(0));
 
@@ -106,7 +106,7 @@ int main(int argc, char* argv[]) {
 		const int j = i;
 		statuses[j] = 0;
 		thread ht(analyzeTempInterval, m, dTemp + step * j, upTemp,
-				(step * thrC), dir, "lel", ref(statuses[j]));
+				(step * thrC), dir, "log", ref(statuses[j]));
 		ht.detach();
 	}
 

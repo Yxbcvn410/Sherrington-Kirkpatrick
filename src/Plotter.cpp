@@ -58,7 +58,7 @@ void Plotter::AddDatafile(string dataFile, Plotter::PlotType type) {
 				ofs << "lines";
 				break;
 			case POINTS:
-				ofs << "points pointtype 13 ps 0.4 lt rgb \"#0000FF\" ";
+				ofs << "points pointtype 13 ps 0.6 lt rgb \"#DD00FF\" ";
 				break;
 			default:
 				break;
