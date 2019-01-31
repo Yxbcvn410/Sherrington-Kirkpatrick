@@ -48,7 +48,7 @@ string composeThreadStatus(int id, double state, int pbLen) {
 	if (state == -1)
 		os << "Dead.";
 	else {
-		os << "\t[";
+		os << "[";
 		for (int i = 0; i < pbLen; i++)
 			if (i / (double) pbLen < state)
 				os << "#";
@@ -62,7 +62,7 @@ string composeThreadStatus(int id, double state, int pbLen) {
 }
 
 int main(int argc, char* argv[]) {
-	cout << "Calc program by Yxbcvn410, version 2.4, build 13" << endl;
+	cout << "Calc program by Yxbcvn410, version 2.5, build 15" << endl;
 
 	//Init model
 	Matrix m(2);

@@ -87,7 +87,7 @@ bool StartupUtils::grabFromFile(double& startRef, double& endRef,
 			modelRef = Matrix(size);
 			modelRef.Randomize();
 			needSave = true;
-		} else if (s == "&wdir" || s == "&wd") {
+		} else if (s == "&wdir" || s == "&wd" || s == "&dir") {
 			ifs >> wDirRef;
 		} else if (s == "&mloc" || s == "&ml") {
 			needSave = false;
@@ -107,7 +107,10 @@ bool StartupUtils::grabFromFile(double& startRef, double& endRef,
 			if (needSave) {
 				modelRef.Randomize();
 			}
-		} else if (s[0] != '#') {
+		} else if (s[0] == '#'){
+			string buf;
+			getline(ifs, buf);
+		} else {
 			cout << "Error while parsing config:\n"
 					<< "Unknown line at config: " << s << endl;
 			return false;
