@@ -31,14 +31,27 @@ void ModelUtils::Stabilize(Matrix matrix, Spinset spinset, double coef, double r
 }
 
 void ModelUtils::Stabilize(Matrix matrix, Spinset spinset){
-	ModelUtils::Stabilize(matrix, spinset, 0.95, 0.000001);
+	ModelUtils::Stabilize(matrix, spinset, 1, 0.000001);
 }
 
-void ModelUtils::PullToZeroTemp(Matrix matrix, Spinset spinset){
+void ModelUtils::PullToZeroTemp(Matrix matrix, Spinset spinset, double step){
 	ModelUtils::Stabilize(matrix, spinset);
 	while (spinset.temp>0){
-		spinset.temp-=0.01;
+		spinset.temp-=step;
 		ModelUtils::Stabilize(matrix, spinset);
 	}
 	spinset.temp=0;
+}
+
+void ModelUtils::PullToZeroTemp(Matrix matrix, Spinset spinset){
+	ModelUtils::PullToZeroTemp(matrix, spinset, 0.01);
+}
+
+void ModelUtils::RoundSpins(Spinset spinset){
+	for (int i = 0; i < spinset.getSize(); ++i) {
+		if(spinset.getSpin(i)>0)
+			spinset.SetSpin(i, 1);
+		else
+			spinset.SetSpin(i, -1);
+	}
 }

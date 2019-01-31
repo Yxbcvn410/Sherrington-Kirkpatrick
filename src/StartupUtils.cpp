@@ -14,26 +14,33 @@
 #include "StartupUtils.h"
 using namespace std;
 
-bool StartupUtils::grabFromCLI(double& startRef, double& endRef, double& stepRef,
-		Matrix& modelRef, int& thrCountRef, string& wDirRef) {
-	double tmp1;
+bool StartupUtils::grabFromCLI(double& startRef, double& endRef,
+		double& stepRef, double& pStepRef, Matrix& modelRef, int& thrCountRef,
+		string& wDirRef) {
+	cout << "Do you want to init randomizer?(yes/no) ";
+	string resp = "";
+	cin >> resp;
+	if (resp == "yes" || resp == "y") {
+		srand(time(0));
+		cout << "Randomizer initialized." << endl;
+	} else
+		cout << "Randomizer was not initialized" << "\n";
 	cout << "Working dir? (-c to use current working directory)\n"
 			<< getCurrentWorkingDir() << endl;
 	cin >> wDirRef;
 	if (wDirRef == "-c" || wDirRef == "-C")
 		wDirRef = getCurrentWorkingDir();
 	cout << "Lower temperature limit?" << endl;
-	cin >> tmp1;
-	startRef = tmp1;
+	cin >> startRef;
 	cout << "Upper temperature limit?" << endl;
-	cin >> tmp1;
-	endRef = tmp1;
+	cin >> endRef;
 	cout << "Calculation step?" << endl;
 	cin >> stepRef;
+	cout << "When moving to zero step?" << endl;
+	cin >> pStepRef;
 	cout << "Thread count?" << endl;
 	cin >> thrCountRef;
 	cout << "Model file? (-r to randomize)" << endl;
-	string resp;
 	cin >> resp;
 	if (resp == "-r" || resp == "-R") {
 		int msize;
@@ -48,8 +55,10 @@ bool StartupUtils::grabFromCLI(double& startRef, double& endRef, double& stepRef
 }
 
 bool StartupUtils::grabFromFile(double& startRef, double& endRef,
-		double& stepRef, Matrix& modelRef, int& thrCountRef, string& wDirRef,
-		string confLocation) {
+		double& stepRef, double& pStepRef, Matrix& modelRef, int& thrCountRef,
+		string& wDirRef, string confLocation) {
+	stepRef = 0.001;
+	pStepRef = 0.001;
 	ifstream ifs;
 	ifs.open(confLocation);
 	if (ifs.good())
@@ -58,10 +67,9 @@ bool StartupUtils::grabFromFile(double& startRef, double& endRef,
 		cout << "Config file not detected, error." << endl;
 		return false;
 	}
-	int prg = 6;
 	string s;
-	bool needSave;
-	while (prg > 0) {
+	bool needSave = false;
+	while (ifs.peek() != EOF) {
 		ifs >> s;
 		if (s == "&start") {
 			ifs >> startRef;
@@ -69,9 +77,11 @@ bool StartupUtils::grabFromFile(double& startRef, double& endRef,
 			ifs >> endRef;
 		} else if (s == "&step") {
 			ifs >> stepRef;
-		} else if (s == "&tc"||s == "&tcount") {
+		} else if (s == "&pstep" || s == "&ps") {
+			ifs >> pStepRef;
+		} else if (s == "&tc" || s == "&tcount") {
 			ifs >> thrCountRef;
-		} else if (s == "&msize"||s=="&ms") {
+		} else if (s == "&msize" || s == "&ms") {
 			int size;
 			ifs >> size;
 			modelRef = Matrix(size);
@@ -91,12 +101,17 @@ bool StartupUtils::grabFromFile(double& startRef, double& endRef,
 				return false;
 			}
 			modelRef = Matrix(ifstream(loc));
-		}else if(s[0]!='#') {
+		} else if (s == "&ird" || s == "&irand" || s == "&initrd"
+				|| s == "&initrand") {
+			srand(time(0));
+			if (needSave) {
+				modelRef.Randomize();
+			}
+		} else if (s[0] != '#') {
 			cout << "Error while parsing config:\n"
-					<< "Unknown command at config: " << s << endl;
+					<< "Unknown line at config: " << s << endl;
 			return false;
 		}
-		prg -= 1;
 	}
 	cout << "Config parsing complete, success." << endl;
 	return needSave;

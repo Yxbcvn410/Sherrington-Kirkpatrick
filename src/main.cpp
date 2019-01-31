@@ -15,10 +15,10 @@ using namespace std;
 using namespace FilesystemProvider;
 
 void analyzeTempInterval(const Matrix &matrix, double start, double end,
-		double step, const string &dir, const string &fname, double &progress) {
+		double step, double pullStep, const string &dir, const string &fname,
+		double &progress) {
 	Spinset spinset(matrix.getSize());
 	ofstream ofs;
-
 	progress = 0;
 
 	int findex = FreeFileIndex(dir, fname, ".txt");
@@ -33,7 +33,7 @@ void analyzeTempInterval(const Matrix &matrix, double start, double end,
 		spinset.temp = t;
 		progress = (t - start) * (t + start) / ((end - start) * (end + start));
 		spinset.Randomize(false);
-		ModelUtils::PullToZeroTemp(matrix, spinset);
+		ModelUtils::PullToZeroTemp(matrix, spinset, pullStep);
 		ofs << t << " \t" << spinset.getEnergy(matrix) << endl;
 		t += step;
 	}
@@ -63,8 +63,6 @@ string composeThreadStatus(int id, double state, int pbLen) {
 
 int main(int argc, char* argv[]) {
 	cout << "Calc program by Yxbcvn410, version 2.4, build 13" << endl;
-	//Init rand
-	srand(time(0));
 
 	//Init model
 	Matrix m(2);
@@ -72,17 +70,18 @@ int main(int argc, char* argv[]) {
 	double dTemp;
 	double upTemp;
 	double step;
+	double pullStep;
 	int thrC;
 	bool nSave;
 	if (argc == 2) {
 		//Acquire init config from config
 		string wd = StartupUtils::getCurrentWorkingDir();
-		nSave = StartupUtils::grabFromFile(ref(dTemp), ref(upTemp), ref(step),
+		nSave = StartupUtils::grabFromFile(ref(dTemp), ref(upTemp), ref(step), ref(pullStep),
 				ref(m), ref(thrC), ref(dir), wd + "/config");
 
 	} else {
 		//Acquire init config from cin
-		nSave = StartupUtils::grabFromCLI(ref(dTemp), ref(upTemp), ref(step),
+		nSave = StartupUtils::grabFromCLI(ref(dTemp), ref(upTemp), ref(step), ref(pullStep),
 				ref(m), ref(thrC), ref(dir));
 	}
 
@@ -106,7 +105,7 @@ int main(int argc, char* argv[]) {
 		const int j = i;
 		statuses[j] = 0;
 		thread ht(analyzeTempInterval, m, dTemp + step * j, upTemp,
-				(step * thrC), dir, "log", ref(statuses[j]));
+				(step * thrC), pullStep, dir, "log", ref(statuses[j]));
 		ht.detach();
 	}
 
