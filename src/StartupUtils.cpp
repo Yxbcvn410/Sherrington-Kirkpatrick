@@ -16,12 +16,13 @@ using namespace std;
 
 bool StartupUtils::grabFromCLI(double& startRef, double& endRef,
 		double& stepRef, double& pStepRef, Matrix& modelRef, int& thrCountRef,
-		string& wDirRef) {
+		bool& randRef, string& wDirRef) {
 	cout << "Do you want to init randomizer?(yes/no) ";
 	string resp = "";
 	cin >> resp;
+	randRef = false;
 	if (resp == "yes" || resp == "y") {
-		srand(time(0));
+		randRef = true;
 		cout << "Randomizer initialized." << endl;
 	} else
 		cout << "Randomizer was not initialized" << "\n";
@@ -56,9 +57,10 @@ bool StartupUtils::grabFromCLI(double& startRef, double& endRef,
 
 bool StartupUtils::grabFromFile(double& startRef, double& endRef,
 		double& stepRef, double& pStepRef, Matrix& modelRef, int& thrCountRef,
-		string& wDirRef, string confLocation) {
+		bool& randRef, string& wDirRef, string confLocation) {
+	randRef = true;
 	stepRef = 0.001;
-	pStepRef = 0.001;
+	pStepRef = 0.02;
 	ifstream ifs;
 	ifs.open(confLocation);
 	if (ifs.good())
@@ -103,16 +105,26 @@ bool StartupUtils::grabFromFile(double& startRef, double& endRef,
 			modelRef = Matrix(ifstream(loc));
 		} else if (s == "&ird" || s == "&irand" || s == "&initrd"
 				|| s == "&initrand") {
-			srand(time(0));
+			string buf;
+			ifs >> buf;
+			if (buf == "true" || buf == "t")
+				randRef = true;
+			else if (buf == "false" || buf == "f")
+				randRef = false;
+			else {
+				cout << "Error while parsing config:\n"
+						<< "Bad word after &irand: " << s << endl;
+				return false;
+			}
 			if (needSave) {
 				modelRef.Randomize();
 			}
-		} else if (s[0] == '#'){
+		} else if (s[0] == '#') {
 			string buf;
 			getline(ifs, buf);
 		} else {
 			cout << "Error while parsing config:\n"
-					<< "Unknown line at config: " << s << endl;
+					<< "Unknown word at config: " << s << endl;
 			return false;
 		}
 	}

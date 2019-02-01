@@ -25,7 +25,7 @@ void Spinset::SetSpin(int index, double value) {
 void Spinset::Randomize(bool bin) {
 	double f;
 	for (int i = 0; i < size; ++i) {
-		f = rand() / (double) RAND_MAX;
+		f = (random() / (double) RAND_MAX)/(double)2;
 		f = f * 2 - 1;
 		if (bin)
 			if (f > 0)
@@ -35,6 +35,10 @@ void Spinset::Randomize(bool bin) {
 		else
 			spins[i] = f;
 	}
+}
+
+void Spinset::seed(int seed){
+	random.seed(seed);
 }
 
 int Spinset::getSize() {

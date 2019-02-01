@@ -16,8 +16,9 @@ using namespace FilesystemProvider;
 
 void analyzeTempInterval(const Matrix &matrix, double start, double end,
 		double step, double pullStep, const string &dir, const string &fname,
-		double &progress) {
+		int seed, double &progress) {
 	Spinset spinset(matrix.getSize());
+	spinset.seed(seed);
 	ofstream ofs;
 	progress = 0;
 
@@ -47,6 +48,9 @@ string composeThreadStatus(int id, double state, int pbLen) {
 	os << "Thread #" << id << ": \t";
 	if (state == -1)
 		os << "Dead.";
+	else if (state == 0){
+		os << "Idle.";
+	}
 	else {
 		os << "[";
 		for (int i = 0; i < pbLen; i++)
@@ -62,7 +66,7 @@ string composeThreadStatus(int id, double state, int pbLen) {
 }
 
 int main(int argc, char* argv[]) {
-	cout << "Calc program by Yxbcvn410, version 2.5, build 15" << endl;
+	cout << "Calc program by Yxbcvn410, version 2.6, build 20" << endl;
 
 	//Init model
 	Matrix m(2);
@@ -73,17 +77,22 @@ int main(int argc, char* argv[]) {
 	double pullStep;
 	int thrC;
 	bool nSave;
+	bool doRand;
 	if (argc == 2) {
 		//Acquire init config from config
 		string wd = StartupUtils::getCurrentWorkingDir();
-		nSave = StartupUtils::grabFromFile(ref(dTemp), ref(upTemp), ref(step), ref(pullStep),
-				ref(m), ref(thrC), ref(dir), wd + "/config");
+		nSave = StartupUtils::grabFromFile(ref(dTemp), ref(upTemp), ref(step),
+				ref(pullStep), ref(m), ref(thrC), ref(doRand), ref(dir),
+				wd + "/config");
 
 	} else {
 		//Acquire init config from cin
-		nSave = StartupUtils::grabFromCLI(ref(dTemp), ref(upTemp), ref(step), ref(pullStep),
-				ref(m), ref(thrC), ref(dir));
+		nSave = StartupUtils::grabFromCLI(ref(dTemp), ref(upTemp), ref(step),
+				ref(pullStep), ref(m), ref(thrC), ref(doRand), ref(dir));
 	}
+
+	if (doRand) // Init random if needed
+		srand(time(0));
 
 	if (nSave) { //Export matrix if needed
 		fstream fs;
@@ -105,7 +114,7 @@ int main(int argc, char* argv[]) {
 		const int j = i;
 		statuses[j] = 0;
 		thread ht(analyzeTempInterval, m, dTemp + step * j, upTemp,
-				(step * thrC), pullStep, dir, "log", ref(statuses[j]));
+				(step * thrC), pullStep, dir, "log", rand(), ref(statuses[j]));
 		ht.detach();
 	}
 
