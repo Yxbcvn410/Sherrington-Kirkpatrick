@@ -66,7 +66,7 @@ string composeThreadStatus(int id, double state, int pbLen) {
 }
 
 int main(int argc, char* argv[]) {
-	cout << "Calc program by Yxbcvn410, version 2.6, build 20" << endl;
+	cout << "Calc program by Yxbcvn410, version 2.6, build 21" << endl;
 
 	//Init model
 	Matrix m(2);
@@ -76,7 +76,7 @@ int main(int argc, char* argv[]) {
 	double step;
 	double pullStep;
 	int thrC;
-	bool nSave;
+	int nSave;
 	bool doRand;
 	if (argc == 2) {
 		//Acquire init config from config
@@ -91,10 +91,16 @@ int main(int argc, char* argv[]) {
 				ref(pullStep), ref(m), ref(thrC), ref(doRand), ref(dir));
 	}
 
+	if(nSave == -1){// If an error occured while parsing
+		cout << "Program terminated due to an error in launch config." << endl;
+		return -1;
+	}
+
 	if (doRand) // Init random if needed
 		srand(time(0));
 
-	if (nSave) { //Export matrix if needed
+	if (nSave == 1) { //Export matrix if needed
+		m.Randomize();
 		fstream fs;
 		fs.open(
 				ComposeFilename(dir, "mat", FreeFileIndex(dir, "mat", ".txt"),

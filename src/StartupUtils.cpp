@@ -14,9 +14,9 @@
 #include "StartupUtils.h"
 using namespace std;
 
-bool StartupUtils::grabFromCLI(double& startRef, double& endRef,
-		double& stepRef, double& pStepRef, Matrix& modelRef, int& thrCountRef,
-		bool& randRef, string& wDirRef) {
+int StartupUtils::grabFromCLI(double& startRef, double& endRef, double& stepRef,
+		double& pStepRef, Matrix& modelRef, int& thrCountRef, bool& randRef,
+		string& wDirRef) {
 	cout << "Do you want to init randomizer?(yes/no) ";
 	string resp = "";
 	cin >> resp;
@@ -48,14 +48,13 @@ bool StartupUtils::grabFromCLI(double& startRef, double& endRef,
 		cout << "Model size?" << endl;
 		cin >> msize;
 		modelRef = Matrix(msize);
-		modelRef.Randomize();
-		return true;
+		return 1;
 	} else
 		modelRef = Matrix(ifstream(resp));
-	return false;
+	return 0;
 }
 
-bool StartupUtils::grabFromFile(double& startRef, double& endRef,
+int StartupUtils::grabFromFile(double& startRef, double& endRef,
 		double& stepRef, double& pStepRef, Matrix& modelRef, int& thrCountRef,
 		bool& randRef, string& wDirRef, string confLocation) {
 	randRef = true;
@@ -67,10 +66,10 @@ bool StartupUtils::grabFromFile(double& startRef, double& endRef,
 		cout << "Config file detected, stay calm..." << endl;
 	else {
 		cout << "Config file not detected, error." << endl;
-		return false;
+		return -1;
 	}
 	string s;
-	bool needSave = false;
+	int needSave = 0;
 	while (ifs.peek() != EOF) {
 		ifs >> s;
 		if (s == "&start") {
@@ -88,19 +87,27 @@ bool StartupUtils::grabFromFile(double& startRef, double& endRef,
 			ifs >> size;
 			modelRef = Matrix(size);
 			modelRef.Randomize();
-			needSave = true;
+			needSave = 1;
 		} else if (s == "&wdir" || s == "&wd" || s == "&dir") {
 			ifs >> wDirRef;
+			ifstream mfs;
+			mfs.open(wDirRef);
+			if (!mfs.good()) {
+				cout << "Error 02 in launch config:\n"
+						<< "Working directory specified does not exist."
+						<< endl;
+				return -1;
+			}
 		} else if (s == "&mloc" || s == "&ml") {
-			needSave = false;
+			needSave = 0;
 			string loc;
 			ifs >> loc;
 			ifstream mfs;
 			mfs.open(loc);
 			if (!mfs.good()) {
-				cout << "Error while parsing config:\n"
-						<< "Bad matrix file location." << endl;
-				return false;
+				cout << "Error 01 in launch config:\n"
+						<< "No matrix file found at specified location." << endl;
+				return -1;
 			}
 			modelRef = Matrix(ifstream(loc));
 		} else if (s == "&ird" || s == "&irand" || s == "&initrd"
@@ -112,22 +119,21 @@ bool StartupUtils::grabFromFile(double& startRef, double& endRef,
 			else if (buf == "false" || buf == "f")
 				randRef = false;
 			else {
-				cout << "Error while parsing config:\n"
+				cout << "Error 03 in launch config:\n"
 						<< "Bad word after &irand: " << s << endl;
-				return false;
-			}
-			if (needSave) {
-				modelRef.Randomize();
+				return -1;
 			}
 		} else if (s[0] == '#') {
 			string buf;
 			getline(ifs, buf);
 		} else {
-			cout << "Error while parsing config:\n"
-					<< "Unknown word at config: " << s << endl;
-			return false;
+			cout << "Error 00 in launch config:\n"
+					<< "Unknown word: " << s << endl;
+			return -1;
 		}
 	}
+	if (needSave == 0)
+		cout << "WARNING: Random generator was not initialized." << endl;
 	cout << "Config parsing complete, success." << endl;
 	return needSave;
 }

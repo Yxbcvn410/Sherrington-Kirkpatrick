@@ -10,10 +10,10 @@
 #include "Matrix.h"
 
 namespace StartupUtils {
-bool grabFromFile(double& startRef, double& endRef, double& stepRef,
+int grabFromFile(double& startRef, double& endRef, double& stepRef,
 		double& pStepRef, Matrix& modelRef, int& thrCountRef, bool& randRef,
 		string& wDirRef, string confLocation);
-bool grabFromCLI(double& startRef, double& endRef, double& stepRef,
+int grabFromCLI(double& startRef, double& endRef, double& stepRef,
 		double& pStepRef, Matrix& modelRef, int& thrCountRef, bool& randRef,
 		string& wDirRef);
 string getCurrentWorkingDir();
