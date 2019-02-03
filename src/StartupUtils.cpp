@@ -59,7 +59,7 @@ int StartupUtils::grabFromFile(double& startRef, double& endRef,
 		bool& randRef, string& wDirRef, string confLocation) {
 	randRef = true;
 	stepRef = 0.001;
-	pStepRef = 0.02;
+	pStepRef = 0.1;
 	ifstream ifs;
 	ifs.open(confLocation);
 	if (ifs.good())
@@ -70,8 +70,8 @@ int StartupUtils::grabFromFile(double& startRef, double& endRef,
 	}
 	string s;
 	int needSave = 0;
+	ifs >> s;
 	while (ifs.peek() != EOF) {
-		ifs >> s;
 		if (s == "&start") {
 			ifs >> startRef;
 		} else if (s == "&end") {
@@ -106,7 +106,8 @@ int StartupUtils::grabFromFile(double& startRef, double& endRef,
 			mfs.open(loc);
 			if (!mfs.good()) {
 				cout << "Error 01 in launch config:\n"
-						<< "No matrix file found at specified location." << endl;
+						<< "No matrix file found at specified location."
+						<< endl;
 				return -1;
 			}
 			modelRef = Matrix(ifstream(loc));
@@ -120,17 +121,18 @@ int StartupUtils::grabFromFile(double& startRef, double& endRef,
 				randRef = false;
 			else {
 				cout << "Error 03 in launch config:\n"
-						<< "Bad word after &irand: " << s << endl;
+						<< "Bad word after &irand: " << buf << endl;
 				return -1;
 			}
 		} else if (s[0] == '#') {
 			string buf;
 			getline(ifs, buf);
 		} else {
-			cout << "Error 00 in launch config:\n"
-					<< "Unknown word: " << s << endl;
+			cout << "Error 00 in launch config:\n" << "Unknown word: " << s
+					<< endl;
 			return -1;
 		}
+		ifs >> s;
 	}
 	if (needSave == 0)
 		cout << "WARNING: Random generator was not initialized." << endl;

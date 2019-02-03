@@ -66,7 +66,7 @@ string composeThreadStatus(int id, double state, int pbLen) {
 }
 
 int main(int argc, char* argv[]) {
-	cout << "Calc program by Yxbcvn410, version 2.6, build 21" << endl;
+	cout << "Calc program by Yxbcvn410, version 2.6, build 22" << endl;
 
 	//Init model
 	Matrix m(2);
