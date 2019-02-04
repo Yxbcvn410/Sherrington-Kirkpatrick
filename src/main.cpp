@@ -1,5 +1,5 @@
 #define VERSION 2.7
-#define BUILD 27
+#define BUILD 28
 
 #include <stdio.h>
 #include <iostream>
@@ -68,14 +68,14 @@ string composeProgressbar(double state, int pbLen) {
 }
 
 string getTimeString(double time) {
-	if(time < 0)
+	if (time < 0)
 		return "0 h 0 m 0 s";
 	ostringstream oss;
-	int d = (int)(time/(24*3600));
-	int h = (int)((time-d*24*3600)/3600);
-	int m = (int)((time-d*24*3600 - h*3600)/60);
-	int s = (int)(time-d*24*3600 - h*3600 - m*60);
-	if(d!=0){
+	int d = (int) (time / (24 * 3600));
+	int h = (int) ((time - d * 24 * 3600) / 3600);
+	int m = (int) ((time - d * 24 * 3600 - h * 3600) / 60);
+	int s = (int) (time - d * 24 * 3600 - h * 3600 - m * 60);
+	if (d != 0) {
 		oss << d << " d ";
 	}
 	oss << h << " h " << m << " m " << s << " s";
@@ -84,7 +84,8 @@ string getTimeString(double time) {
 }
 
 int main(int argc, char* argv[]) {
-	cout << "Calc program by Yxbcvn410, version " << VERSION << ", build " << BUILD << endl;
+	cout << "Calc program by Yxbcvn410, version " << VERSION << ", build "
+			<< BUILD << endl;
 
 	//Init model
 	Matrix m(2);
@@ -96,8 +97,12 @@ int main(int argc, char* argv[]) {
 	int thrC;
 	int nSave;
 	bool doRand;
+	ofstream logWriter;
+	logWriter.open(dir + "/log", ios::out | ios::app);
+
 	if (argc == 2) {
 		//Acquire init config from config
+		logWriter << "Parsing init config..." << endl;
 		string wd = StartupUtils::getCurrentWorkingDir();
 		nSave = StartupUtils::grabFromFile(ref(dTemp), ref(upTemp), ref(step),
 				ref(pullStep), ref(m), ref(thrC), ref(doRand), ref(dir),
@@ -111,11 +116,10 @@ int main(int argc, char* argv[]) {
 
 	if (nSave == -1) { // If an error occured while parsing
 		cout << "Program terminated due to an error in launch config." << endl;
+		logWriter << "Program terminated due to an error in launch config." << endl;
 		return -1;
 	}
 
-	ofstream logWriter;
-	logWriter.open(dir + "/log");
 	logWriter << "Starting with ";
 
 	srand(time(0));
@@ -149,7 +153,7 @@ int main(int argc, char* argv[]) {
 		thread ht(analyzeTempInterval, m, dTemp + step * j, upTemp,
 				(step * thrC), pullStep, dir, "log", rand(), ref(statuses[j]));
 		ht.detach();
-		logWriter << "Launched thread #" << i+1 << endl;
+		logWriter << "Launched thread #" << i + 1 << endl;
 	}
 
 	//Launch clock
@@ -168,19 +172,28 @@ int main(int argc, char* argv[]) {
 			s += statuses[i];
 			if (statuses[i] != -1)
 				flag = true;
-			cout << "Thread #" << i << ":\t"<< composeProgressbar(statuses[i], 60) << endl;
+			cout << "Thread #" << i << ":\t"
+					<< composeProgressbar(statuses[i], 60) << endl;
 		}
 		s = s / thrC;
-		cout << "ETA: " << getTimeString(((1-s)/s)*difftime(time(NULL), start)) << endl;
+		cout << "Time elapsed: " << getTimeString(difftime(time(NULL), start));
+		cout << "ETA: "
+				<< getTimeString(((1 - s) / s) * difftime(time(NULL), start))
+				<< endl;
 		count++;
-		if(count>100){
+		if (count > 100) {
 			count = 1;
-			logWriter << "[" << getTimeString((clock()-start)/(double)(CLOCKS_PER_SEC)) << "]:\t Progress " << composeProgressbar(s, 60) << "\n";
-			logWriter << "ETA: " << getTimeString(((1-s)/s)*difftime(time(NULL), start)) << endl;
+			logWriter << "[" << getTimeString(difftime(time(NULL), start))
+					<< "]:\t Progress " << composeProgressbar(s, 60) << "\n";
+			logWriter << "ETA: "
+					<< getTimeString(
+							((1 - s) / s) * difftime(time(NULL), start))
+					<< endl;
 		}
 	}
 
-	logWriter << "Calculation complete in " << getTimeString(difftime(time(NULL), start)) << endl;
+	logWriter << "Calculation complete in "
+			<< getTimeString(difftime(time(NULL), start)) << endl;
 	Plotter::doPlot();
 	Plotter::clearScriptfile();
 }
