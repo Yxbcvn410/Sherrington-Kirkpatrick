@@ -4,6 +4,7 @@
 #include <fstream>
 #include <thread>
 #include <unistd.h>
+#include <ctime>
 #include "Matrix.h"
 #include "Spinset.h"
 #include "ModelUtils.h"
@@ -43,15 +44,13 @@ void analyzeTempInterval(const Matrix &matrix, double start, double end,
 	progress = -1;
 }
 
-string composeThreadStatus(int id, double state, int pbLen) {
+string composeProgressbar(double state, int pbLen) {
 	ostringstream os;
-	os << "Thread #" << id << ": \t";
 	if (state == -1)
 		os << "Dead.";
-	else if (state == 0){
+	else if (state == 0) {
 		os << "Idle.";
-	}
-	else {
+	} else {
 		os << "[";
 		for (int i = 0; i < pbLen; i++)
 			if (i / (double) pbLen < state)
@@ -65,8 +64,24 @@ string composeThreadStatus(int id, double state, int pbLen) {
 	return os.str();
 }
 
+string getTimeString(double time) {
+	if(time < 0)
+		return "0 h 0 m 0 s";
+	ostringstream oss;
+	int d = (int)(time/(24*3600));
+	int h = (int)((time-d*24*3600)/3600);
+	int m = (int)((time-d*24*3600 - h*3600)/60);
+	int s = (int)(time-d*24*3600 - h*3600 - m*60);
+	if(d!=0){
+		oss << d << " d ";
+	}
+	oss << h << " h " << m << " m " << s << " s";
+	return oss.str();
+
+}
+
 int main(int argc, char* argv[]) {
-	cout << "Calc program by Yxbcvn410, version 2.6, build 22" << endl;
+	cout << "Calc program by Yxbcvn410, version 2.7, build 25" << endl;
 
 	//Init model
 	Matrix m(2);
@@ -91,13 +106,16 @@ int main(int argc, char* argv[]) {
 				ref(pullStep), ref(m), ref(thrC), ref(doRand), ref(dir));
 	}
 
-	if(nSave == -1){// If an error occured while parsing
+	if (nSave == -1) { // If an error occured while parsing
 		cout << "Program terminated due to an error in launch config." << endl;
 		return -1;
 	}
 
-	if (doRand) // Init random if needed
-		srand(time(0));
+	ofstream logWriter;
+	logWriter.open(dir + "/log");
+	logWriter << "Starting with ";
+
+	srand(time(0));
 
 	if (nSave == 1) { //Export matrix if needed
 		m.Randomize();
@@ -107,8 +125,14 @@ int main(int argc, char* argv[]) {
 						".txt"), ios::out);
 		fs << m.getMatrix();
 		fs.flush();
-	}
+		logWriter << "new matrix, size " << m.getSize() << endl;
+	} else
+		logWriter << "existing matrix, size " << m.getSize() << endl;
 
+	if (!doRand) { // Init random if needed
+		srand(1);
+		logWriter << "Random de-initialized." << endl;
+	}
 	//Init plot
 	Plotter::InitScriptfile(
 			ComposeFilename(dir, "img", FreeFileIndex(dir, "img", ".png"),
@@ -122,20 +146,38 @@ int main(int argc, char* argv[]) {
 		thread ht(analyzeTempInterval, m, dTemp + step * j, upTemp,
 				(step * thrC), pullStep, dir, "log", rand(), ref(statuses[j]));
 		ht.detach();
+		logWriter << "Launched thread #" << i+1 << endl;
 	}
+
+	//Launch clock
+	clock_t start = clock();
 
 	//Beautiful output
 	bool flag = true;
+	int count = 1;
+	double s;
 	while (flag) {
 		this_thread::sleep_for(1000ms);
 		system("clear");
 		flag = false;
+		s = 0;
 		for (int i = 0; i < thrC; ++i) {
+			s += statuses[i];
 			if (statuses[i] != -1)
 				flag = true;
-			cout << composeThreadStatus(i, statuses[i], 60) << endl;
+			cout << "Thread #" << i << ":\t"<< composeProgressbar(statuses[i], 60) << endl;
+		}
+		s = s / thrC;
+		cout << "ETA: " << getTimeString(((1-s)/s)*(clock()-start)/(double)(CLOCKS_PER_SEC)) << endl;
+		count++;
+		if(count>100){
+			count = 1;
+			logWriter << "[" << getTimeString((clock()-start)/(double)(CLOCKS_PER_SEC)) << "]:\t Progress " << composeProgressbar(s, 60) << "\n";
+			logWriter << "ETA: " << getTimeString(((1-s)/s)*(clock()-start)/(double)(CLOCKS_PER_SEC)) << endl;
 		}
 	}
+
+	logWriter << "Calculation complete in " << getTimeString((clock()-start)/(double)(CLOCKS_PER_SEC)) << endl;
 	Plotter::doPlot();
 	Plotter::clearScriptfile();
 }

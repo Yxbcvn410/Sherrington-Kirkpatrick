@@ -134,7 +134,7 @@ int StartupUtils::grabFromFile(double& startRef, double& endRef,
 		}
 		ifs >> s;
 	}
-	if (needSave == 0)
+	if (!randRef)
 		cout << "WARNING: Random generator was not initialized." << endl;
 	cout << "Config parsing complete, success." << endl;
 	return needSave;
