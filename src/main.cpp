@@ -1,3 +1,6 @@
+#define VERSION 2.7
+#define BUILD 27
+
 #include <stdio.h>
 #include <iostream>
 #include <sstream>
@@ -81,7 +84,7 @@ string getTimeString(double time) {
 }
 
 int main(int argc, char* argv[]) {
-	cout << "Calc program by Yxbcvn410, version 2.7, build 25" << endl;
+	cout << "Calc program by Yxbcvn410, version " << VERSION << ", build " << BUILD << endl;
 
 	//Init model
 	Matrix m(2);
@@ -150,7 +153,7 @@ int main(int argc, char* argv[]) {
 	}
 
 	//Launch clock
-	clock_t start = clock();
+	time_t start = time(NULL);
 
 	//Beautiful output
 	bool flag = true;
@@ -168,16 +171,16 @@ int main(int argc, char* argv[]) {
 			cout << "Thread #" << i << ":\t"<< composeProgressbar(statuses[i], 60) << endl;
 		}
 		s = s / thrC;
-		cout << "ETA: " << getTimeString(((1-s)/s)*(clock()-start)/(double)(CLOCKS_PER_SEC)) << endl;
+		cout << "ETA: " << getTimeString(((1-s)/s)*difftime(time(NULL), start)) << endl;
 		count++;
 		if(count>100){
 			count = 1;
 			logWriter << "[" << getTimeString((clock()-start)/(double)(CLOCKS_PER_SEC)) << "]:\t Progress " << composeProgressbar(s, 60) << "\n";
-			logWriter << "ETA: " << getTimeString(((1-s)/s)*(clock()-start)/(double)(CLOCKS_PER_SEC)) << endl;
+			logWriter << "ETA: " << getTimeString(((1-s)/s)*difftime(time(NULL), start)) << endl;
 		}
 	}
 
-	logWriter << "Calculation complete in " << getTimeString((clock()-start)/(double)(CLOCKS_PER_SEC)) << endl;
+	logWriter << "Calculation complete in " << getTimeString(difftime(time(NULL), start)) << endl;
 	Plotter::doPlot();
 	Plotter::clearScriptfile();
 }
