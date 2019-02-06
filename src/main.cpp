@@ -1,5 +1,5 @@
 #define VERSION 2.7
-#define BUILD 28
+#define BUILD 29
 
 #include <stdio.h>
 #include <iostream>
@@ -98,8 +98,6 @@ int main(int argc, char* argv[]) {
 	int nSave;
 	bool doRand;
 	ofstream logWriter;
-	logWriter.open(dir + "/log", ios::out | ios::app);
-
 	if (argc == 2) {
 		//Acquire init config from config
 		logWriter << "Parsing init config..." << endl;
@@ -113,10 +111,12 @@ int main(int argc, char* argv[]) {
 		nSave = StartupUtils::grabFromCLI(ref(dTemp), ref(upTemp), ref(step),
 				ref(pullStep), ref(m), ref(thrC), ref(doRand), ref(dir));
 	}
+	logWriter.open(dir + "/l.log", ios::out | ios::app);
 
 	if (nSave == -1) { // If an error occured while parsing
 		cout << "Program terminated due to an error in launch config." << endl;
-		logWriter << "Program terminated due to an error in launch config." << endl;
+		logWriter << "Program terminated due to an error in launch config."
+				<< endl;
 		return -1;
 	}
 
@@ -162,32 +162,35 @@ int main(int argc, char* argv[]) {
 	//Beautiful output
 	bool flag = true;
 	int count = 1;
-	double s;
+	double progr;
 	while (flag) {
 		this_thread::sleep_for(1000ms);
 		system("clear");
 		flag = false;
-		s = 0;
+		progr = 0;
 		for (int i = 0; i < thrC; ++i) {
-			s += statuses[i];
+			if (statuses[i] == -1)
+				progr += 1;
+			else
+				progr += statuses[i];
 			if (statuses[i] != -1)
 				flag = true;
 			cout << "Thread #" << i << ":\t"
 					<< composeProgressbar(statuses[i], 60) << endl;
 		}
-		s = s / thrC;
-		cout << "Time elapsed: " << getTimeString(difftime(time(NULL), start));
+		progr = progr / thrC;
+		cout << "Time elapsed: " << getTimeString(difftime(time(NULL), start)) << "\n";
 		cout << "ETA: "
-				<< getTimeString(((1 - s) / s) * difftime(time(NULL), start))
+				<< getTimeString(((1 - progr) / progr) * difftime(time(NULL), start))
 				<< endl;
 		count++;
-		if (count > 100) {
+		if (count > 60) {
 			count = 1;
 			logWriter << "[" << getTimeString(difftime(time(NULL), start))
-					<< "]:\t Progress " << composeProgressbar(s, 60) << "\n";
+					<< "]:\t Progress " << composeProgressbar(progr, 60) << "\n";
 			logWriter << "ETA: "
 					<< getTimeString(
-							((1 - s) / s) * difftime(time(NULL), start))
+							((1 - progr) / progr) * difftime(time(NULL), start))
 					<< endl;
 		}
 	}

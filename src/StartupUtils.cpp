@@ -17,7 +17,7 @@ using namespace std;
 int StartupUtils::grabFromCLI(double& startRef, double& endRef, double& stepRef,
 		double& pStepRef, Matrix& modelRef, int& thrCountRef, bool& randRef,
 		string& wDirRef) {
-	cout << "Do you want to init randomizer?(yes/no) ";
+	cout << "Do you want to init randomizer? (yes/no) ";
 	string resp = "";
 	cin >> resp;
 	randRef = false;
@@ -65,7 +65,7 @@ int StartupUtils::grabFromFile(double& startRef, double& endRef,
 	if (ifs.good())
 		cout << "Config file detected, stay calm..." << endl;
 	else {
-		cout << "Config file not detected, error." << endl;
+		cout << "Error 00: Config file not detected." << "Is it in the working directory?" << endl;
 		return -1;
 	}
 	string s;
@@ -93,7 +93,7 @@ int StartupUtils::grabFromFile(double& startRef, double& endRef,
 			ifstream mfs;
 			mfs.open(wDirRef);
 			if (!mfs.good()) {
-				cout << "Error 02 in launch config:\n"
+				cout << "Error 03 in launch config:\n"
 						<< "Working directory specified does not exist."
 						<< endl;
 				return -1;
@@ -105,7 +105,7 @@ int StartupUtils::grabFromFile(double& startRef, double& endRef,
 			ifstream mfs;
 			mfs.open(loc);
 			if (!mfs.good()) {
-				cout << "Error 01 in launch config:\n"
+				cout << "Error 02 in launch config:\n"
 						<< "No matrix file found at specified location."
 						<< endl;
 				return -1;
@@ -120,7 +120,7 @@ int StartupUtils::grabFromFile(double& startRef, double& endRef,
 			else if (buf == "false" || buf == "f")
 				randRef = false;
 			else {
-				cout << "Error 03 in launch config:\n"
+				cout << "Error 04 in launch config:\n"
 						<< "Bad word after &irand: " << buf << endl;
 				return -1;
 			}
@@ -128,7 +128,7 @@ int StartupUtils::grabFromFile(double& startRef, double& endRef,
 			string buf;
 			getline(ifs, buf);
 		} else {
-			cout << "Error 00 in launch config:\n" << "Unknown word: " << s
+			cout << "Error 01 in launch config:\n" << "Unknown word: " << s
 					<< endl;
 			return -1;
 		}
