@@ -1,5 +1,5 @@
 #define VERSION 2.8
-#define BUILD 32
+#define BUILD 33
 
 #include <stdio.h>
 #include <iostream>
@@ -113,7 +113,7 @@ int main(int argc, char* argv[]) {
 	//Init model
 	Matrix m(2);
 	string dir;
-	double dTemp;
+	double dTemp = 0;
 	double upTemp;
 	double step = 0.01;
 	double pullStep = 0.01;
@@ -121,13 +121,11 @@ int main(int argc, char* argv[]) {
 	int nSave;
 	bool doRand = true;
 	ofstream logWriter;
-	if (argc == 2) {
+	if (argc >= 2) {
 		//Acquire init config from config
-		try{
-		m = Matrix(stod(argv[1]));
-		}
-		catch(exception* e){
-			cout << "Argument not double";
+		m = Matrix(stoi(argv[1]));
+		if(argc >= 3){
+			upTemp = stod(argv[2]);
 		}
 		logWriter << "Parsing init config..." << endl;
 		string wd = StartupUtils::getCurrentWorkingDir();
