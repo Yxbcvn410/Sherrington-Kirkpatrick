@@ -71,6 +71,10 @@ string Matrix::getMatrix() {
 	return out.str();
 }
 
-double Matrix::getCell(int x, int y) {
+const double Matrix::getCell(int x, int y) {
 	return matrix[x * size + y];
+}
+
+const double* Matrix::getArray(){
+	return matrix;
 }

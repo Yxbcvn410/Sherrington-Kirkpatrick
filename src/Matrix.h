@@ -20,9 +20,10 @@ public:
 	Matrix(string s);
 	Matrix(ifstream fs);
 	void Randomize();
-	double getCell(int x, int y);
+	const double getCell(int x, int y);
 	string getMatrix();
 	int getSize() const;
+	const double* getArray();
 };
 
 #endif /* MATRIX_H_ */
