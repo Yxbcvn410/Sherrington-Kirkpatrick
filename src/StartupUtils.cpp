@@ -10,7 +10,7 @@
 #include <stdio.h>
 #include <fstream>
 #include <unistd.h>
-
+#include <boost/filesystem.hpp>
 #include "StartupUtils.h"
 using namespace std;
 
@@ -26,11 +26,19 @@ int StartupUtils::grabFromCLI(double& startRef, double& endRef, double& stepRef,
 		cout << "Randomizer initialized." << endl;
 	} else
 		cout << "Randomizer was not initialized" << "\n";
-	cout << "Working dir? (-c to use current working directory)\n"
+	cout << "Working dir? (-c to auto-create working directory)\n"
 			<< getCurrentWorkingDir() << endl;
 	cin >> wDirRef;
-	if (wDirRef == "-c" || wDirRef == "-C")
-		wDirRef = getCurrentWorkingDir();
+	if (wDirRef == "-c" || wDirRef == "-C") {
+		int dirIndex = 0;
+		do {
+			dirIndex++;
+			ostringstream oss;
+			oss << getCurrentWorkingDir() << "/calc" << dirIndex;
+			wDirRef = oss.str();
+		} while (boost::filesystem::exists(wDirRef.c_str()));
+		boost::filesystem::create_directories(wDirRef.c_str());
+	}
 	cout << "Lower temperature limit?" << endl;
 	cin >> startRef;
 	cout << "Upper temperature limit?" << endl;
@@ -57,19 +65,17 @@ int StartupUtils::grabFromCLI(double& startRef, double& endRef, double& stepRef,
 int StartupUtils::grabFromFile(double& startRef, double& endRef,
 		double& stepRef, double& pStepRef, Matrix& modelRef, int& thrCountRef,
 		bool& randRef, string& wDirRef, string confLocation) {
-	randRef = true;
-	stepRef = 0.001;
-	pStepRef = 0.1;
 	ifstream ifs;
 	ifs.open(confLocation);
 	if (ifs.good())
 		cout << "Config file detected, stay calm..." << endl;
 	else {
-		cout << "Error 00: Config file not detected." << "Is it in the working directory?" << endl;
+		cout << "Error 00: Config file not detected.\n"
+				<< "Is it in the working directory?" << endl;
 		return -1;
 	}
 	string s;
-	int needSave = 0;
+	int needSave = 1;
 	ifs >> s;
 	while (ifs.peek() != EOF) {
 		if (s == "&start") {
@@ -90,13 +96,15 @@ int StartupUtils::grabFromFile(double& startRef, double& endRef,
 			needSave = 1;
 		} else if (s == "&wdir" || s == "&wd" || s == "&dir") {
 			ifs >> wDirRef;
-			ifstream mfs;
-			mfs.open(wDirRef);
-			if (!mfs.good()) {
-				cout << "Error 03 in launch config:\n"
-						<< "Working directory specified does not exist."
-						<< endl;
-				return -1;
+			if (wDirRef == "-a" || wDirRef == "-A") {
+				int dirIndex = 0;
+				do {
+					dirIndex++;
+					ostringstream oss;
+					oss << getCurrentWorkingDir() << "/calc" << dirIndex;
+					wDirRef = oss.str();
+				} while (boost::filesystem::exists(wDirRef.c_str()));
+				boost::filesystem::create_directories(wDirRef.c_str());
 			}
 		} else if (s == "&mloc" || s == "&ml") {
 			needSave = 0;

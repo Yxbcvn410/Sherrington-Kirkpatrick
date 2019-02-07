@@ -1,5 +1,5 @@
-#define VERSION 2.7
-#define BUILD 29
+#define VERSION 2.8
+#define BUILD 31
 
 #include <stdio.h>
 #include <iostream>
@@ -8,6 +8,7 @@
 #include <thread>
 #include <unistd.h>
 #include <ctime>
+#include <mutex>
 #include "Matrix.h"
 #include "Spinset.h"
 #include "ModelUtils.h"
@@ -17,6 +18,13 @@
 
 using namespace std;
 using namespace FilesystemProvider;
+
+//Minimum storage
+double minEnergy;
+int minCount;
+string minSpins;
+mutex mcMutex;
+mutex mesMutex;
 
 void analyzeTempInterval(const Matrix &matrix, double start, double end,
 		double step, double pullStep, const string &dir, const string &fname,
@@ -33,14 +41,29 @@ void analyzeTempInterval(const Matrix &matrix, double start, double end,
 	Plotter::AddDatafile(ComposeFilename(dir, fname, findex, ".txt"),
 			Plotter::POINTS);
 
-	double t = start;
-	while (t < end) {
-		spinset.temp = t;
-		progress = (t - start) * (t + start) / ((end - start) * (end + start));
+	double currentTemp = start;
+	while (currentTemp < end) {
+		spinset.temp = currentTemp;
+		progress = (currentTemp - start) * (currentTemp + start)
+				/ ((end - start) * (end + start));
 		spinset.Randomize(false);
 		ModelUtils::PullToZeroTemp(matrix, spinset, pullStep);
-		ofs << t << " \t" << spinset.getEnergy(matrix) << endl;
-		t += step;
+		ofs << currentTemp << " \t" << spinset.getEnergy(matrix) << endl;
+		if (spinset.getEnergy(matrix) < minEnergy) {
+			mesMutex.lock();
+			if (spinset.getEnergy(matrix) < minEnergy) {
+				minEnergy = spinset.getEnergy(matrix);
+				minSpins = spinset.getSpins();
+				minCount = 0;
+			}
+			mesMutex.unlock();
+		} else if (spinset.getEnergy(matrix) == minEnergy) {
+			mcMutex.lock();
+			if (spinset.getEnergy(matrix) == minEnergy)
+				minCount++; //*/
+			mcMutex.unlock();
+		}
+		currentTemp += step;
 	}
 	ofs.flush();
 	ofs.close();
@@ -92,14 +115,20 @@ int main(int argc, char* argv[]) {
 	string dir;
 	double dTemp;
 	double upTemp;
-	double step;
-	double pullStep;
+	double step = 0.01;
+	double pullStep = 0.01;
 	int thrC;
 	int nSave;
-	bool doRand;
+	bool doRand = true;
 	ofstream logWriter;
 	if (argc == 2) {
 		//Acquire init config from config
+		try{
+		m = Matrix(stod(argv[1]));
+		}
+		catch(exception* e){
+			cout << "Argument not double";
+		}
 		logWriter << "Parsing init config..." << endl;
 		string wd = StartupUtils::getCurrentWorkingDir();
 		nSave = StartupUtils::grabFromFile(ref(dTemp), ref(upTemp), ref(step),
@@ -179,15 +208,18 @@ int main(int argc, char* argv[]) {
 					<< composeProgressbar(statuses[i], 60) << endl;
 		}
 		progr = progr / thrC;
-		cout << "Time elapsed: " << getTimeString(difftime(time(NULL), start)) << "\n";
+		cout << "Time elapsed: " << getTimeString(difftime(time(NULL), start))
+				<< "\n";
 		cout << "ETA: "
-				<< getTimeString(((1 - progr) / progr) * difftime(time(NULL), start))
+				<< getTimeString(
+						((1 - progr) / progr) * difftime(time(NULL), start))
 				<< endl;
 		count++;
 		if (count > 60) {
 			count = 1;
 			logWriter << "[" << getTimeString(difftime(time(NULL), start))
-					<< "]:\t Progress " << composeProgressbar(progr, 60) << "\n";
+					<< "]:\t Progress " << composeProgressbar(progr, 60)
+					<< "\n";
 			logWriter << "ETA: "
 					<< getTimeString(
 							((1 - progr) / progr) * difftime(time(NULL), start))
@@ -197,6 +229,13 @@ int main(int argc, char* argv[]) {
 
 	logWriter << "Calculation complete in "
 			<< getTimeString(difftime(time(NULL), start)) << endl;
+	ofstream spinWriter;
+	spinWriter.open(dir + "/spins.txt", ios::out);
+	spinWriter << "Minimum energy: " << minEnergy << endl;
+	spinWriter << "Hit count: " << minCount << endl;
+	spinWriter << "Spin assessment:" << endl << minSpins << endl;
+	spinWriter.flush();
+	spinWriter.close();
 	Plotter::doPlot();
 	Plotter::clearScriptfile();
 }
