@@ -10,8 +10,8 @@
 #include <stdio.h>
 #include <fstream>
 #include <unistd.h>
-#include <boost/filesystem.hpp>
 #include "StartupUtils.h"
+#include "FilesystemProvider.h"
 using namespace std;
 
 int StartupUtils::grabFromCLI(double& startRef, double& endRef, double& stepRef,
@@ -36,8 +36,10 @@ int StartupUtils::grabFromCLI(double& startRef, double& endRef, double& stepRef,
 			ostringstream oss;
 			oss << getCurrentWorkingDir() << "/calc" << dirIndex;
 			wDirRef = oss.str();
-		} while (boost::filesystem::exists(wDirRef.c_str()));
-		boost::filesystem::create_directories(wDirRef.c_str());
+		} while (FilesystemProvider::FileExists(wDirRef));
+		ostringstream oss;
+		oss << "mkdir " << wDirRef;
+		system(oss.str().c_str());
 	}
 	cout << "Lower temperature limit?" << endl;
 	cin >> startRef;
@@ -103,8 +105,10 @@ int StartupUtils::grabFromFile(double& startRef, double& endRef,
 					ostringstream oss;
 					oss << getCurrentWorkingDir() << "/calc" << dirIndex;
 					wDirRef = oss.str();
-				} while (boost::filesystem::exists(wDirRef.c_str()));
-				boost::filesystem::create_directories(wDirRef.c_str());
+				} while (FilesystemProvider::FileExists(wDirRef));
+				ostringstream oss;
+				oss << "mkdir " << wDirRef;
+				system(oss.str().c_str());
 			}
 		} else if (s == "&mloc" || s == "&ml") {
 			needSave = 0;
