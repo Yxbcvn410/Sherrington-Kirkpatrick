@@ -1,5 +1,5 @@
 #define VERSION 2.8
-#define BUILD 33
+#define BUILD 34
 
 #include <stdio.h>
 #include <iostream>
@@ -34,7 +34,7 @@ void analyzeTempInterval(const Matrix &matrix, double start, double end,
 	ofstream ofs;
 	progress = 0;
 
-	int findex = FreeFileIndex(dir, fname, ".txt");
+	int findex = FreeFileIndex(dir, fname, ".txt", true);
 	ofs.open(ComposeFilename(dir, fname, findex, ".txt"), ios::out);
 	ofs << "t e" << endl;
 	ofs.flush();
@@ -155,7 +155,7 @@ int main(int argc, char* argv[]) {
 		m.Randomize();
 		fstream fs;
 		fs.open(
-				ComposeFilename(dir, "mat", FreeFileIndex(dir, "mat", ".txt"),
+				ComposeFilename(dir, "mat", FreeFileIndex(dir, "mat", ".txt", false),
 						".txt"), ios::out);
 		fs << m.getMatrix();
 		fs.flush();
@@ -169,7 +169,7 @@ int main(int argc, char* argv[]) {
 	}
 	//Init plot
 	Plotter::InitScriptfile(
-			ComposeFilename(dir, "img", FreeFileIndex(dir, "img", ".png"),
+			ComposeFilename(dir, "img", FreeFileIndex(dir, "img", ".png", false),
 					".png"), "");
 
 	//Launch threads

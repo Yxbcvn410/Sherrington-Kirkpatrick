@@ -28,16 +28,24 @@ string FilesystemProvider::ComposeFilename(string ParentName, string key,
 mutex fs_lock;
 
 int FilesystemProvider::FreeFileIndex(string ParentName, string key,
-		string extention) {
+		string extention, bool reserve) {
 	fs_lock.lock();
 	int out = 0;
 	while (FileExists(ComposeFilename(ParentName, key, out, extention)))
 		out++;
-	ofstream ifs;
-	ifs.open(ComposeFilename(ParentName, key, out, extention), ios::out);
-	ifs << " ";
-	ifs.flush();
-	ifs.close();
+	if (reserve) {
+		ofstream ifs;
+		ifs.open(ComposeFilename(ParentName, key, out, extention), ios::out);
+		ifs << " ";
+		ifs.flush();
+		ifs.close();
+	}
 	fs_lock.unlock();
 	return out;
+}
+
+void FilesystemProvider::makeDirectory(string pathTo, string name) {
+	ostringstream oss;
+	oss << "mkdir " << pathTo << "/" << name;
+	system(oss.str().c_str());
 }

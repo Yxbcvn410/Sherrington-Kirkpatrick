@@ -21,25 +21,18 @@ int StartupUtils::grabFromCLI(double& startRef, double& endRef, double& stepRef,
 	string resp = "";
 	cin >> resp;
 	randRef = false;
+	bool mkDir = false;
 	if (resp == "yes" || resp == "y") {
 		randRef = true;
 		cout << "Randomizer initialized." << endl;
 	} else
 		cout << "Randomizer was not initialized" << "\n";
-	cout << "Working dir? (-c to auto-create working directory)\n"
+	cout << "Working dir? (-a to auto-create in current working directory)\n"
 			<< getCurrentWorkingDir() << endl;
 	cin >> wDirRef;
-	if (wDirRef == "-c" || wDirRef == "-C") {
-		int dirIndex = 0;
-		do {
-			dirIndex++;
-			ostringstream oss;
-			oss << getCurrentWorkingDir() << "/calc" << dirIndex;
-			wDirRef = oss.str();
-		} while (FilesystemProvider::FileExists(wDirRef));
-		ostringstream oss;
-		oss << "mkdir " << wDirRef;
-		system(oss.str().c_str());
+	if (wDirRef == "-a" || wDirRef == "-A") {
+		mkDir = true;
+		wDirRef = "";
 	}
 	cout << "Lower temperature limit?" << endl;
 	cin >> startRef;
@@ -61,6 +54,15 @@ int StartupUtils::grabFromCLI(double& startRef, double& endRef, double& stepRef,
 		return 1;
 	} else
 		modelRef = Matrix(ifstream(resp));
+	if (mkDir) {
+		ostringstream oss;
+		oss << "calc" << modelRef.getSize() << "_";
+		int dirIndex = FilesystemProvider::FreeFileIndex(getCurrentWorkingDir(),
+				oss.str(), "", false);
+		oss << dirIndex;
+		wDirRef = getCurrentWorkingDir() + "/" + oss.str();
+		FilesystemProvider::makeDirectory(wDirRef, "");
+	}
 	return 0;
 }
 
@@ -77,6 +79,7 @@ int StartupUtils::grabFromFile(double& startRef, double& endRef,
 		return -1;
 	}
 	string s;
+	bool mkDir = false;
 	int needSave = 1;
 	ifs >> s;
 	while (ifs.peek() != EOF) {
@@ -99,16 +102,8 @@ int StartupUtils::grabFromFile(double& startRef, double& endRef,
 		} else if (s == "&wdir" || s == "&wd" || s == "&dir") {
 			ifs >> wDirRef;
 			if (wDirRef == "-a" || wDirRef == "-A") {
-				int dirIndex = 0;
-				do {
-					dirIndex++;
-					ostringstream oss;
-					oss << getCurrentWorkingDir() << "/calc" << dirIndex;
-					wDirRef = oss.str();
-				} while (FilesystemProvider::FileExists(wDirRef));
-				ostringstream oss;
-				oss << "mkdir " << wDirRef;
-				system(oss.str().c_str());
+				mkDir = true;
+				wDirRef = "";
 			}
 		} else if (s == "&mloc" || s == "&ml") {
 			needSave = 0;
@@ -148,6 +143,15 @@ int StartupUtils::grabFromFile(double& startRef, double& endRef,
 	}
 	if (!randRef)
 		cout << "WARNING: Random generator was not initialized." << endl;
+	if (mkDir) {
+		ostringstream oss;
+		oss << "calc" << modelRef.getSize() << "_";
+		int dirIndex = FilesystemProvider::FreeFileIndex(getCurrentWorkingDir(),
+				oss.str(), "", false);
+		oss << dirIndex;
+		wDirRef = getCurrentWorkingDir() + "/" + oss.str();
+		FilesystemProvider::makeDirectory(wDirRef, "");
+	}
 	cout << "Config parsing complete, success." << endl;
 	return needSave;
 }
