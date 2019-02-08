@@ -63,8 +63,7 @@ const string Spinset::getSpins() {
 }
 
 const double Spinset::getForce(const int index, Matrix matrix) {
-	return CudaOperations::getForce(matrix, spins, index);
-	/*
+	return CudaOperations::getForce(matrix, spins, index);/*
 	double out = 0;
 	for (int i = 0; i < size; i++) {
 		if (i < index) {
@@ -72,7 +71,7 @@ const double Spinset::getForce(const int index, Matrix matrix) {
 		} else
 			out += spins[i] * matrix.getCell(index, i);
 	}
-	return out;*/
+	return out;//*/
 }
 
 const double Spinset::getEnergy(Matrix matrix) {
