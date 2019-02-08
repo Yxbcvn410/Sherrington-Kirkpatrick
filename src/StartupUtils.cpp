@@ -80,15 +80,20 @@ int StartupUtils::grabFromFile(double& startRef, double& endRef,
 	}
 	string s;
 	bool mkDir = false;
+	bool cStep = false;
 	int needSave = 1;
 	ifs >> s;
 	while (ifs.peek() != EOF) {
 		if (s == "&start") {
 			ifs >> startRef;
-		} else if (s == "&end") {
+		} else if (s == "&end" || s == "&e") {
 			ifs >> endRef;
 		} else if (s == "&step") {
 			ifs >> stepRef;
+			cStep = false;
+		} else if (s == "&c" || s == "&count") {
+			ifs >> stepRef;
+			cStep = true;
 		} else if (s == "&pstep" || s == "&ps") {
 			ifs >> pStepRef;
 		} else if (s == "&tc" || s == "&tcount") {
@@ -104,7 +109,8 @@ int StartupUtils::grabFromFile(double& startRef, double& endRef,
 			if (wDirRef == "-a" || wDirRef == "-A") {
 				mkDir = true;
 				wDirRef = "";
-			}
+			} else
+				mkDir = false;
 		} else if (s == "&mloc" || s == "&ml") {
 			needSave = 0;
 			string loc;
@@ -152,6 +158,8 @@ int StartupUtils::grabFromFile(double& startRef, double& endRef,
 		wDirRef = getCurrentWorkingDir() + "/" + oss.str();
 		FilesystemProvider::makeDirectory(wDirRef, "");
 	}
+	if (cStep)
+		stepRef = (endRef - startRef) / stepRef;
 	cout << "Config parsing complete, success." << endl;
 	return needSave;
 }

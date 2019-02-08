@@ -1,5 +1,5 @@
 #define VERSION 2.8
-#define BUILD 34
+#define BUILD 35
 
 #include <stdio.h>
 #include <iostream>
@@ -42,6 +42,7 @@ void analyzeTempInterval(const Matrix &matrix, double start, double end,
 			Plotter::POINTS);
 
 	double currentTemp = start;
+	minCount = 1;
 	while (currentTemp < end) {
 		spinset.temp = currentTemp;
 		progress = (currentTemp - start) * (currentTemp + start)
@@ -54,7 +55,7 @@ void analyzeTempInterval(const Matrix &matrix, double start, double end,
 			if (spinset.getEnergy(matrix) < minEnergy) {
 				minEnergy = spinset.getEnergy(matrix);
 				minSpins = spinset.getSpins();
-				minCount = 0;
+				minCount = 1;
 			}
 			mesMutex.unlock();
 		} else if (spinset.getEnergy(matrix) == minEnergy) {
@@ -115,8 +116,8 @@ int main(int argc, char* argv[]) {
 	string dir;
 	double dTemp = 0;
 	double upTemp;
-	double step = 0.01;
-	double pullStep = 0.01;
+	double step = 0.001;
+	double pullStep = 0.1;
 	int thrC;
 	int nSave;
 	bool doRand = true;
@@ -155,7 +156,7 @@ int main(int argc, char* argv[]) {
 		m.Randomize();
 		fstream fs;
 		fs.open(
-				ComposeFilename(dir, "mat", FreeFileIndex(dir, "mat", ".txt", false),
+				ComposeFilename(dir, "mat", FreeFileIndex(dir, "mat", ".txt", true),
 						".txt"), ios::out);
 		fs << m.getMatrix();
 		fs.flush();
@@ -169,7 +170,7 @@ int main(int argc, char* argv[]) {
 	}
 	//Init plot
 	Plotter::InitScriptfile(
-			ComposeFilename(dir, "img", FreeFileIndex(dir, "img", ".png", false),
+			ComposeFilename(dir, "img", FreeFileIndex(dir, "img", ".png", true),
 					".png"), "");
 
 	//Launch threads
