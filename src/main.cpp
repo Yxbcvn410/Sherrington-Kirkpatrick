@@ -179,15 +179,18 @@ int main(int argc, char* argv[]) {
 					<< composeProgressbar(statuses[i], 60) << endl;
 		}
 		progr = progr / thrC;
-		cout << "Time elapsed: " << getTimeString(difftime(time(NULL), start)) << "\n";
+		cout << "Time elapsed: " << getTimeString(difftime(time(NULL), start))
+				<< "\n";
 		cout << "ETA: "
-				<< getTimeString(((1 - progr) / progr) * difftime(time(NULL), start))
+				<< getTimeString(
+						((1 - progr) / progr) * difftime(time(NULL), start))
 				<< endl;
 		count++;
 		if (count > 60) {
 			count = 1;
 			logWriter << "[" << getTimeString(difftime(time(NULL), start))
-					<< "]:\t Progress " << composeProgressbar(progr, 60) << "\n";
+					<< "]:\t Progress " << composeProgressbar(progr, 60)
+					<< "\n";
 			logWriter << "ETA: "
 					<< getTimeString(
 							((1 - progr) / progr) * difftime(time(NULL), start))
