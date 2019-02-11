@@ -15,7 +15,6 @@ double* energyMat1 = NULL;
 double* energyMat2 = NULL;
 double* energy = NULL;
 
-
 //CPU variables
 double temp;
 int size;
