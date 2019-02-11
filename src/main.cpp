@@ -14,6 +14,7 @@
 #include "FilesystemProvider.h"
 #include "Plotter.h"
 #include "StartupUtils.h"
+#include "CudaOperations.h"
 
 using namespace std;
 using namespace FilesystemProvider;
@@ -25,6 +26,8 @@ void analyzeTempInterval(const Matrix &matrix, double start, double end,
 	spinset.seed(seed);
 	ofstream ofs;
 	progress = 0;
+
+	CudaOperations::cudaInit(matrix);
 
 	int findex = FreeFileIndex(dir, fname, ".txt");
 	ofs.open(ComposeFilename(dir, fname, findex, ".txt"), ios::out);
@@ -38,8 +41,10 @@ void analyzeTempInterval(const Matrix &matrix, double start, double end,
 		spinset.temp = t;
 		progress = (t - start) * (t + start) / ((end - start) * (end + start));
 		spinset.Randomize(false);
-		ModelUtils::PullToZeroTemp(matrix, spinset, pullStep);
-		ofs << t << " \t" << spinset.getEnergy(matrix) << endl;
+		CudaOperations::cudaLoadSpinset(spinset);
+		CudaOperations::cudaPull(pullStep);
+		//ModelUtils::PullToZeroTemp(matrix, spinset, pullStep);
+		ofs << t << " \t" << CudaOperations::extractEnergy() << endl;
 		t += step;
 	}
 	ofs.flush();
