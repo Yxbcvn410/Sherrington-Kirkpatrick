@@ -14,7 +14,6 @@
 #include "CudaOperations.h"
 
 double iterate(Matrix matrix, Spinset spinset, double coef) {
-	return CudaOperations::cudaIterate(matrix, spinset);
 	double out = 0;
 	for (int i = 0; i < matrix.getSize(); ++i) {
 		if (out
