@@ -12,9 +12,12 @@
 #include "Spinset.h"
 
 namespace CudaOperations{
-double getEnergy(Matrix matrix, double* spinset);
-double getForce(Matrix matrix, double* spinset, int spinIndex);
-void iterateSpinset(Matrix matrix, Spinset spinset);
+void cudaInit(Matrix matrix);
+void cudaLoadSpinset(Spinset spinset);
+void cudaPull();
+void cudaStabilize();
+double cudaIterate();
+void cudaClear();
 }
 
 

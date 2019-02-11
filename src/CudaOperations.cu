@@ -2,19 +2,30 @@
 #include "Spinset.h"
 #include "CudaOperations.h"
 #include <cuda_runtime.h>
+#include <cmath>
 
-double CudaOperations::getEnergy(Matrix matrix, double* spinset) {
+//GPU memory pointers
+double* devSpins = NULL;
+double* devMat = NULL;
+double* forceElems = NULL;
+int* devSize = NULL;
+int* devSpinIndex = NULL;
+
+//CPU variables
+double* hForceElems;
+double temp;
+int size;
+
+__device__ volatile int sem = 0;
+
+__device__ void acquire_semaphore(volatile int *lock) {
+	while (atomicCAS((int *) lock, 0, 1) != 0)
+		;
 }
 
-__global__ void calcF(double *matrix, double *spinset, int* spinIndex,
-		int* size, double *calc) {
-	int i = threadIdx.x;
-	if (i >= size[0])
-		return;
-	if (i > spinIndex[0])
-		calc[i] = spinset[i] * matrix[(spinIndex[0]) * (size[0]) + i];
-	else
-		calc[i] = spinset[i] * matrix[i * (size[0]) + spinIndex[0]];
+__device__ void release_semaphore(volatile int *lock) {
+	*lock = 0;
+	__threadfence();
 }
 
 void checkError(cudaError_t err, string arg = "") {
@@ -26,57 +37,84 @@ void checkError(cudaError_t err, string arg = "") {
 	}
 }
 
-double CudaOperations::getForce(Matrix matrix, double* spinset, int spinIndex) {
-	//Define
-	double* outp = NULL;
-	double* dMat = NULL;
-	double* dSpins = NULL;
-	int* dSInd = NULL;
-	int* size = NULL;
+void CudaOperations::cudaInit(Matrix matrix) {
+	// Set pointers to null
+	devSpins = NULL;
+	devMat = NULL;
+	forceElems = NULL;
+	devSize = NULL;
+	devSpinIndex = NULL;
 
-	//Allocate memory in GPU
-	checkError(cudaMalloc((void **) &outp, sizeof(double) * matrix.getSize()),
+	size = matrix.getSize();
+
+	// Allocate memory for pointers at GPU
+	checkError(cudaMalloc((void**) &forceElems, sizeof(double) * modelSize),
 			"malloc");
-	cudaMalloc((void**) &dMat, sizeof(double) * matrix.getSize() * matrix.getSize());
-	cudaMalloc((void**) &dSpins,
-			sizeof(double) * matrix.getSize());
-	cudaMalloc((void**) &dSInd, sizeof(int));
-	cudaMalloc((void**) &size, sizeof(int));
+	cudaMalloc((void**) &oForce, sizeof(double));
+	cudaMalloc((void**) &devMat, sizeof(double) * modelSize * modelSize);
+	cudaMalloc((void**) &devSpins, sizeof(double) * modelSize);
+	cudaMalloc((void**) &devSize, sizeof(int));
+	cudaMalloc((void**) &devSpinIndex, sizeof(int));
 
-	//Copy data
-	checkError(
-			cudaMemcpy(dMat, matrix.getArray(),
-					sizeof(double) * matrix.getSize() * matrix.getSize(), cudaMemcpyHostToDevice),
-			"memcpy");
-	cudaMemcpy(dSpins, spinset,
-			sizeof(double) * matrix.getSize(),
+	//Allocate memory for CPU pointers
+	hForceElems = (double*) malloc(sizeof(double) * size);
+
+	// Copy model data to GPU memory
+	cudaMemcpy(devMat, matrix.getArray(), sizeof(double) * size * size,
 			cudaMemcpyHostToDevice);
-	cudaMemcpy(dSInd, &(spinIndex), sizeof(int), cudaMemcpyHostToDevice);
-	int* ss = (int*) malloc(sizeof(int));
-	*ss = matrix.getSize();
-	cudaMemcpy(size, ss, sizeof(int), cudaMemcpyHostToDevice);
+	cudaMemcpy(devSize, &size, sizeof(int), cudaMemcpyHostToDevice);
+}
 
-	//Start
-	calcF<<<1, *ss>>>(dMat, dSpins, dSInd, size, outp);
-
-	cudaDeviceSynchronize();
-	double result = 0;
-	double* ress = new double[*ss];
+void CudaOperations::cudaLoadSpinset(Spinset spinset) {
 	checkError(
-			cudaMemcpy(ress, outp, sizeof(double) * (*ss),
-					cudaMemcpyDeviceToHost), "memcpy back");
-	for (int i = 0; i < matrix.getSize(); ++i) {
-		result += ress[i];
+			cudaMemcpy(devSpins, spinset.getArray(), sizeof(double) * size,
+					cudaMemcpyHostToDevice));
+	temp = spinset.temp;
+}
+
+void CudaOperations::cudaClear() {
+	//Free GPU memory
+	cudaFree(devSpins);
+	cudaFree(devMat);
+	cudaFree(forceElems);
+	cudaFree (oForces);
+	cudaFree(devSize);
+}
+
+double extractPreferredVal() {
+	checkError(
+			cudaMemcpy(hForceElems, forceElems, sizeof(double) * size,
+					cudaMemcpyDeviceToHost), "Memcpy force elements");
+	double force = 0;
+	for (int i = 0; i < size; i++)
+		force += hForceElems[i];
+	if (temp <= 0) {
+		if (getForce(index, matrix) > 0)
+			return -1;
+		else if (getForce(index, matrix) < 0)
+			return 1;
+		else
+			return 0;
+	} else
+		return tanh((-1 * getForce(index, matrix)) / temp);
+}
+
+__global__ void cuGetForce() {
+	int i = threadIdx.x;
+	if (i == *devSpinIndex || i >= devSize)
+		return;
+	if (i < *devSpinIndex)
+		forceElems[i] = devSpins[i] * devMat[i * *devSize + *devSpinIndex];
+	else
+		forceElems[i] = devSpins[i] * devMat[*devSpinIndex * *devSize + i];
+}
+
+double CudaOperations::cudaIterate() {
+	double diff = 0;
+	int spinIndex = 0;
+	for (spinIndex = 0; spinIndex < size; ++spinIndex) {
+		cudaMemcpy(devSpinIndex, &spinIndex, sizeof(int),
+				cudaMemcpyHostToDevice);
+
 	}
-	//Free memory of GPU
-	cudaFree(outp);
-	cudaFree(dMat);
-	cudaFree(dSpins);
-	cudaFree(dSInd);
-	cudaFree(size);
-
-	//Free CPU memory too
-	free(ress);
-
-	return result;
 }

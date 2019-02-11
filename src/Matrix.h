@@ -22,7 +22,7 @@ public:
 	void Randomize();
 	const double getCell(int x, int y);
 	string getMatrix();
-	int getSize() const;
+	 int getSize() const;
 	const double* getArray();
 };
 

@@ -53,7 +53,7 @@ void Matrix::Randomize() {
 	}
 }
 
-int Matrix::getSize() const {
+int Matrix::getSize() const{
 	int s;
 	s = size;
 	return s;
