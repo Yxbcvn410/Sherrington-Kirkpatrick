@@ -169,7 +169,7 @@ int main(int argc, char* argv[]) {
 	int count = 1;
 	double progr;
 	while (flag) {
-		this_thread::sleep_for(1000ms);
+		this_thread::sleep_for(std::chrono::milliseconds(1000));
 		system("clear");
 		flag = false;
 		progr = 0;
