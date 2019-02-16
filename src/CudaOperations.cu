@@ -2,6 +2,7 @@
 #include "Spinset.h"
 #include "CudaOperations.h"
 #include <cuda_runtime.h>
+#include <sstream>
 #include <math.h>
 
 //GPU memory pointers
@@ -66,8 +67,6 @@ void CudaOperations::cudaLoadSpinset(Spinset spinset) {
 	cudaMemcpy(devTemp, &(spinset.temp), sizeof(double),
 			cudaMemcpyHostToDevice);
 	temp = spinset.temp;
-	cout << "spinset loaded" << endl << spinset.getSpins() << endl << temp
-			<< endl;
 }
 
 void CudaOperations::cudaClear() {
@@ -122,22 +121,27 @@ __global__ void cudaStabilize(double* mat, double* spins, int* size,
 	//Launch in size threads
 	int thrId = threadIdx.x;
 	if (thrId >= *size) {
-		*itC = -1;
 		return;
 	}
-	if (thrId == 1)
-	*itC = 0;
+	if (thrId == 0)
+		*itC = 0;
 
 	while (true) {
+		__syncthreads();
 		//Iterate on all spins
 		if (thrId == 0) {
 			*diff = 0;
-			*itC++;
+			*itC = *itC + 1;
 		}
 		for (int spinId = 0; spinId < *size; ++spinId) {
-			forceElements[thrId] = mat[spinId * *size + thrId];
 			__syncthreads();
-
+			if (thrId > spinId)
+				forceElements[thrId] = mat[spinId * *size + thrId]
+						* spins[thrId];
+			else
+				forceElements[thrId] = mat[thrId * *size + spinId]
+						* spins[thrId];
+			__syncthreads();
 			//Here you will be able to see the hellish code for calculating the sum of an array in log(N) time
 			if (thrId == 0) {
 				// Calculate force...
@@ -148,9 +152,9 @@ __global__ void cudaStabilize(double* mat, double* spins, int* size,
 
 				// Calculate new spin...
 				double old = spins[spinId];
-				if (*temp > 0)
+				if (*temp > 0) {
 					spins[spinId] = -1 * tanh(force / *temp);
-				else if (force > 0)
+				} else if (force > 0)
 					spins[spinId] = -1;
 				else if (force < 0)
 					spins[spinId] = 1;
@@ -158,9 +162,10 @@ __global__ void cudaStabilize(double* mat, double* spins, int* size,
 					spins[spinId] = 0;
 
 				//And refresh diff
-				if (*diff < abs(old - spins[spinId]))
-					*diff = abs(old - spins[spinId]);
+				if (*diff < fabs(old - spins[spinId]))
+					*diff = fabs(old - spins[spinId]);
 			}
+			__syncthreads();
 		}
 
 		__syncthreads();
@@ -176,9 +181,6 @@ void CudaOperations::cudaPull(double pStep) {
 	cudaStabilize<<<1, size>>>(devMat, devSpins, devSize, devTemp, forceElems,
 			diff, itC);
 	cudaDeviceSynchronize();
-	int ill;
-	cudaMemcpy(&ill, itC, sizeof(int), cudaMemcpyDeviceToHost);
-	cout << ill;
 	do {
 		temp -= pStep;
 		checkError(
@@ -187,15 +189,6 @@ void CudaOperations::cudaPull(double pStep) {
 		cudaStabilize<<<1, size>>>(devMat, devSpins, devSize, devTemp,
 				forceElems, diff, itC);
 		cudaDeviceSynchronize();
-		int ill;
-		cudaMemcpy(&ill, itC, sizeof(int), cudaMemcpyDeviceToHost);
-		cout << ill;
 	} while (temp > 0);
-	double* spinset = new double[size];
-	cudaMemcpy(spinset, devSpins, sizeof(double) * size,
-			cudaMemcpyDeviceToHost);
-	cout << "stable:" << endl;
-	for (int i = 0; i < size; i++)
-		cout << spinset[i] << " ";
-	cout << endl;
+
 }

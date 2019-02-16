@@ -49,7 +49,6 @@ void Matrix::Randomize() {
 			f = rand() / (double) RAND_MAX;
 			f = f * 2 - 1;
 			matrix[i * size + j] = f;
-			matrix[j * size + i] = f;
 		}
 	}
 }
