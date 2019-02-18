@@ -12,8 +12,7 @@ double* forceElems = NULL; //Temporary storage for counting force
 int* devSize = NULL; //Size
 double* devTemp = NULL; //Temperature
 double* diff = NULL;
-double* energyMat1 = NULL;
-double* energyMat2 = NULL;
+double* energyMat = NULL;
 double* energy = NULL;
 
 //CPU variables
@@ -35,8 +34,7 @@ void CudaOperations::cudaInit(Matrix matrix) {
 	devMat = NULL;
 	forceElems = NULL;
 	devSize = NULL;
-	energyMat1 = NULL;
-	energyMat2 = NULL;
+	energyMat = NULL;
 	diff = NULL;
 	devTemp = NULL;
 
@@ -48,8 +46,7 @@ void CudaOperations::cudaInit(Matrix matrix) {
 	cudaMalloc((void**) &devMat, sizeof(double) * size * size);
 	cudaMalloc((void**) &devSpins, sizeof(double) * size);
 	cudaMalloc((void**) &devSize, sizeof(int));
-	cudaMalloc((void**) &energyMat1, sizeof(double) * size * size);
-	cudaMalloc((void**) &energyMat2, sizeof(double) * size);
+	cudaMalloc((void**) &energyMat, sizeof(double) * size * size);
 	cudaMalloc((void**) &energy, sizeof(double));
 	cudaMalloc((void**) &devTemp, sizeof(double));
 	cudaMalloc((void**) &diff, sizeof(double));
@@ -77,38 +74,35 @@ void CudaOperations::cudaClear() {
 	cudaFree(devSize);
 	cudaFree(devTemp);
 	cudaFree(energy);
-	cudaFree(energyMat1);
-	cudaFree(energyMat2);
+	cudaFree(energyMat);
 	cudaFree(diff);
 }
 
 __global__ void calcEnergy1(double* devMat, double* devSpins, int* devSize,
-		double* energyMat1) {
+		double* energyMat) {
 	int i = threadIdx.x, j = threadIdx.y;
-	energyMat1[i * *devSize + j] = devSpins[i] * devSpins[j]
+	energyMat[i * *devSize + j] = devSpins[i] * devSpins[j]
 			* devMat[i * *devSize + j];
 }
 
-__global__ void calcEnergy2(double* energyMat1, double* energyMat2,
-		int* devSize) {
-	int inn = threadIdx.x;
-	energyMat2[inn] = 0;
-	for (int i = 0; i < *devSize; ++i) {
-		energyMat2[inn] += energyMat1[inn * *devSize + i];
-	}
-}
+__global__ void quickSum(double* mat, int* size, double* output) {
+	// Invoke with dim3(size, size)
+	int thrId = threadIdx.x * blockDim.x + threadIdx.y;
 
-__global__ void calcEnergy3(double* energyMat2, double* energy, int* devSize) {
-	*energy = 0;
-	for (int i = 0; i < *devSize; ++i) {
-		*energy += energyMat2[i];
+	int offset = 1;
+	while (offset < *size * *size) {
+		if ((thrId * 2 + 1) * offset < *size * *size)
+			mat[thrId * 2 * offset] += mat[(thrId * 2 + 1) * offset];
+		offset *= 2;
+		__syncthreads();
 	}
+	if (thrId == 0)
+		*output = mat[0];
 }
 
 double CudaOperations::extractEnergy() {
-	calcEnergy1<<<1, dim3(size, size)>>>(devMat, devSpins, devSize, energyMat1);
-	calcEnergy2<<<1, size>>>(energyMat1, energyMat2, devSize);
-	calcEnergy3<<<1, 1>>>(energyMat2, energy, devSize);
+	calcEnergy1<<<1, dim3(size, size)>>>(devMat, devSpins, devSize, energyMat);
+	quickSum<<<1, dim3(size, size)>>>(energyMat, devSize, energy);
 	cudaDeviceSynchronize();
 	double out;
 	checkError(cudaMemcpy(&out, energy, sizeof(double), cudaMemcpyDeviceToHost),
@@ -142,15 +136,22 @@ __global__ void cudaStabilize(double* mat, double* spins, int* size,
 				forceElements[thrId] = mat[thrId * *size + spinId]
 						* spins[thrId];
 			__syncthreads();
-			//Here you will be able to see the hellish code for calculating the sum of an array in log(N) time
-			if (thrId == 0) {
-				// Calculate force...
-				double force = 0;
-				for (int i = 0; i < *size; ++i) {
-					force += forceElements[i];
-				}
 
-				// Calculate new spin...
+			// Parallelized mean-field computation
+			double force = 0;
+			int offset = 1;
+			while (offset < *size) {
+				if ((thrId * 2 + 1) * offset < *size)
+					forceElements[thrId * 2 * offset] += forceElements[(thrId
+							* 2 + 1) * offset];
+				offset *= 2;
+				__syncthreads();
+			}
+			if (thrId == 0)
+				force = forceElements[0];
+
+			// Mean-field calculation complete - write new spin and delta
+			if (thrId == 0) {
 				double old = spins[spinId];
 				if (*temp > 0) {
 					spins[spinId] = -1 * tanh(force / *temp);
@@ -161,7 +162,7 @@ __global__ void cudaStabilize(double* mat, double* spins, int* size,
 				else
 					spins[spinId] = 0;
 
-				//And refresh diff
+				// Refresh delta
 				if (*diff < fabs(old - spins[spinId]))
 					*diff = fabs(old - spins[spinId]);
 			}
