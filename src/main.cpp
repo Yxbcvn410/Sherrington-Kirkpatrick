@@ -1,5 +1,5 @@
-#define VERSION 2.8
-#define BUILD 35
+#define VERSION 3.2
+#define BUILD 52
 
 #include <stdio.h>
 #include <iostream>
@@ -11,7 +11,6 @@
 #include <mutex>
 #include "Matrix.h"
 #include "Spinset.h"
-#include "ModelUtils.h"
 #include "FilesystemProvider.h"
 #include "Plotter.h"
 #include "StartupUtils.h"
@@ -53,18 +52,19 @@ void analyzeTempInterval(const Matrix &matrix, double start, double end,
 
 		CudaOperations::cudaLoadSpinset(spinset);
 		CudaOperations::cudaPull(pullStep);
-		ofs << currentTemp << " \t" << CudaOperations::extractEnergy() << endl;
-		if (spinset.getEnergy(matrix) < minEnergy) {
+		double spinsetEnergy = CudaOperations::extractEnergy();
+		ofs << currentTemp << " \t" << spinsetEnergy << endl;
+		if (spinsetEnergy < minEnergy) {
 			mesMutex.lock();
-			if (spinset.getEnergy(matrix) < minEnergy) {
-				minEnergy = spinset.getEnergy(matrix);
-				minSpins = spinset.getSpins();
+			if (spinsetEnergy < minEnergy) {
+				minEnergy = spinsetEnergy;
+				minSpins = CudaOperations::extractSpinset().getSpins();
 				minCount = 1;
 			}
 			mesMutex.unlock();
-		} else if (spinset.getEnergy(matrix) == minEnergy) {
+		} else if (spinsetEnergy == minEnergy) {
 			mcMutex.lock();
-			if (spinset.getEnergy(matrix) == minEnergy)
+			if (spinsetEnergy == minEnergy)
 				minCount++; //*/
 			mcMutex.unlock();
 		}
@@ -130,7 +130,7 @@ int main(int argc, char* argv[]) {
 	if (argc >= 2) {
 		//Acquire init config from config
 		m = Matrix(stoi(argv[1]));
-		if(argc >= 3){
+		if (argc >= 3) {
 			upTemp = stod(argv[2]);
 		}
 		logWriter << "Parsing init config..." << endl;
@@ -161,8 +161,9 @@ int main(int argc, char* argv[]) {
 		m.Randomize();
 		fstream fs;
 		fs.open(
-				ComposeFilename(dir, "mat", FreeFileIndex(dir, "mat", ".txt", true),
-						".txt"), ios::out);
+				ComposeFilename(dir, "mat",
+						FreeFileIndex(dir, "mat", ".txt", true), ".txt"),
+				ios::out);
 		fs << m.getMatrix();
 		fs.flush();
 		logWriter << "new matrix, size " << m.getSize() << endl;
@@ -237,7 +238,11 @@ int main(int argc, char* argv[]) {
 	spinWriter.open(dir + "/spins.txt", ios::out);
 	spinWriter << "Minimum energy: " << minEnergy << endl;
 	spinWriter << "Hit count: " << minCount << endl;
+	spinWriter << "Temperature bounds: from " << dTemp << " to " << upTemp
+			<< ", " << (int) ((upTemp - dTemp) / step) << " points in total" << endl;
 	spinWriter << "Spin assessment:" << endl << minSpins << endl;
+	spinWriter << "Computed using " << thrC << " threads in "
+			<< getTimeString(difftime(time(NULL), start)) << endl;
 	spinWriter.flush();
 	spinWriter.close();
 	Plotter::doPlot();

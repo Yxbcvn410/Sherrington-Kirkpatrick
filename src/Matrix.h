@@ -17,10 +17,8 @@ private:
 	double* matrix;
 public:
 	Matrix(int size);
-	Matrix(string s);
 	Matrix(ifstream fs);
 	void Randomize();
-	const double getCell(int x, int y);
 	string getMatrix();
 	 int getSize() const;
 	const double* getArray();

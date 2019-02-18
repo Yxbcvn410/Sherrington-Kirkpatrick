@@ -44,6 +44,15 @@ int StartupUtils::grabFromCLI(double& startRef, double& endRef, double& stepRef,
 	cin >> pStepRef;
 	cout << "Thread count?" << endl;
 	cin >> thrCountRef;
+	if (mkDir) {
+		ostringstream oss;
+		oss << "calc" << modelRef.getSize() << "_";
+		int dirIndex = FilesystemProvider::FreeFileIndex(getCurrentWorkingDir(),
+				oss.str(), "", false);
+		oss << dirIndex;
+		wDirRef = getCurrentWorkingDir() + "/" + oss.str();
+		FilesystemProvider::makeDirectory(wDirRef, "");
+	}
 	cout << "Model file? (-r to randomize)" << endl;
 	cin >> resp;
 	if (resp == "-r" || resp == "-R") {
@@ -54,15 +63,6 @@ int StartupUtils::grabFromCLI(double& startRef, double& endRef, double& stepRef,
 		return 1;
 	} else
 		modelRef = Matrix(ifstream(resp));
-	if (mkDir) {
-		ostringstream oss;
-		oss << "calc" << modelRef.getSize() << "_";
-		int dirIndex = FilesystemProvider::FreeFileIndex(getCurrentWorkingDir(),
-				oss.str(), "", false);
-		oss << dirIndex;
-		wDirRef = getCurrentWorkingDir() + "/" + oss.str();
-		FilesystemProvider::makeDirectory(wDirRef, "");
-	}
 	return 0;
 }
 

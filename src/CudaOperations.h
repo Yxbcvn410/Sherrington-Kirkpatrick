@@ -16,6 +16,7 @@ void cudaInit(Matrix matrix);
 void cudaLoadSpinset(Spinset spinset);
 void cudaPull(double pStep);
 double extractEnergy();
+Spinset extractSpinset();
 void cudaClear();
 }
 

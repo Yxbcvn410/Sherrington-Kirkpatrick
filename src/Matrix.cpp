@@ -17,19 +17,6 @@ Matrix::Matrix(int size) {
 	matrix = new double[size * size];
 }
 
-Matrix::Matrix(string s) {
-	istringstream iss(s);
-	int ss;
-	iss >> ss;
-	size = ss;
-	matrix = new double[size * size];
-	for (int i = 0; i < size; ++i) {
-		for (int j = 0; j < size; ++j) {
-			iss >> matrix[i * size + j];
-		}
-	}
-}
-
 Matrix::Matrix(ifstream fs) {
 	int ss;
 	fs >> ss;
@@ -69,10 +56,6 @@ string Matrix::getMatrix() {
 		out << "\n";
 	}
 	return out.str();
-}
-
-const double Matrix::getCell(int x, int y) {
-	return matrix[x * size + y];
 }
 
 const double* Matrix::getArray(){

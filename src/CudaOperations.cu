@@ -8,11 +8,11 @@
 //GPU memory pointers
 double* devSpins = NULL; //Spinset
 double* devMat = NULL; //Matrix
-double* forceElems = NULL; //Temporary storage for counting force
 int* devSize = NULL; //Size
 double* devTemp = NULL; //Temperature
-double* diff = NULL;
-double* energyMat = NULL;
+double* meanFieldElems = NULL; //Temporary storage for force computation
+double* delta = NULL;
+double* energyMat = NULL; //Temporary storage for energy computation
 double* energy = NULL;
 
 //CPU variables
@@ -32,16 +32,16 @@ void CudaOperations::cudaInit(Matrix matrix) {
 	// Set pointers to null
 	devSpins = NULL;
 	devMat = NULL;
-	forceElems = NULL;
+	meanFieldElems = NULL;
 	devSize = NULL;
 	energyMat = NULL;
-	diff = NULL;
+	delta = NULL;
 	devTemp = NULL;
 
 	size = matrix.getSize();
 
 	// Allocate memory for pointers at GPU
-	checkError(cudaMalloc((void**) &forceElems, sizeof(double) * size),
+	checkError(cudaMalloc((void**) &meanFieldElems, sizeof(double) * size),
 			"malloc");
 	cudaMalloc((void**) &devMat, sizeof(double) * size * size);
 	cudaMalloc((void**) &devSpins, sizeof(double) * size);
@@ -49,7 +49,7 @@ void CudaOperations::cudaInit(Matrix matrix) {
 	cudaMalloc((void**) &energyMat, sizeof(double) * size * size);
 	cudaMalloc((void**) &energy, sizeof(double));
 	cudaMalloc((void**) &devTemp, sizeof(double));
-	cudaMalloc((void**) &diff, sizeof(double));
+	cudaMalloc((void**) &delta, sizeof(double));
 
 	// Copy model data to GPU memory
 	cudaMemcpy(devMat, matrix.getArray(), sizeof(double) * size * size,
@@ -70,49 +70,52 @@ void CudaOperations::cudaClear() {
 	//Free GPU memory
 	cudaFree(devSpins);
 	cudaFree(devMat);
-	cudaFree(forceElems);
+	cudaFree(meanFieldElems);
 	cudaFree(devSize);
 	cudaFree(devTemp);
 	cudaFree(energy);
 	cudaFree(energyMat);
-	cudaFree(diff);
+	cudaFree(delta);
 }
 
-__global__ void calcEnergy1(double* devMat, double* devSpins, int* devSize,
-		double* energyMat) {
-	int i = threadIdx.x, j = threadIdx.y;
-	energyMat[i * *devSize + j] = devSpins[i] * devSpins[j]
-			* devMat[i * *devSize + j];
-}
-
-__global__ void quickSum(double* mat, int* size, double* output) {
+__global__ void quickSumEnergy(double* devMat, double* devSpins, int* size, double* output, double* energyTempor) {
 	// Invoke with dim3(size, size)
-	int thrId = threadIdx.x * blockDim.x + threadIdx.y;
+	int i = threadIdx.x, j = threadIdx.y, thrId = i * *size + j;
+		energyTempor[thrId] = devSpins[i] * devSpins[j]
+				* devMat[thrId];
 
 	int offset = 1;
 	while (offset < *size * *size) {
 		if ((thrId * 2 + 1) * offset < *size * *size)
-			mat[thrId * 2 * offset] += mat[(thrId * 2 + 1) * offset];
+			energyTempor[thrId * 2 * offset] += energyTempor[(thrId * 2 + 1) * offset];
 		offset *= 2;
 		__syncthreads();
 	}
 	if (thrId == 0)
-		*output = mat[0];
+		*output = energyTempor[0];
 }
 
 double CudaOperations::extractEnergy() {
-	calcEnergy1<<<1, dim3(size, size)>>>(devMat, devSpins, devSize, energyMat);
-	quickSum<<<1, dim3(size, size)>>>(energyMat, devSize, energy);
+	quickSumEnergy<<<1, dim3(size, size)>>>(devMat, devSpins, devSize, energy, energyMat);
 	cudaDeviceSynchronize();
 	double out;
 	checkError(cudaMemcpy(&out, energy, sizeof(double), cudaMemcpyDeviceToHost),
-			"energy memcpy");
+			"memcpy energy to host");
 	return out;
+}
+
+Spinset CudaOperations::extractSpinset() {
+	double* hSpins = (double*)malloc(sizeof(double)*size);
+	checkError(cudaMemcpy(hSpins, devSpins, sizeof(double)*size, cudaMemcpyDeviceToHost), "memcpy spins to host");
+	Spinset outSpins(size);
+	for(int i = 0; i < size; i++)
+		outSpins.SetSpin(i, hSpins[i]);
+	return outSpins;
 }
 
 __global__ void cudaStabilize(double* mat, double* spins, int* size,
 		double* temp, double* forceElements, double* diff, int* itC) {
-	//Launch in size threads
+	// Invoke with div3(size)
 	int thrId = threadIdx.x;
 	if (thrId >= *size) {
 		return;
@@ -127,6 +130,7 @@ __global__ void cudaStabilize(double* mat, double* spins, int* size,
 			*diff = 0;
 			*itC = *itC + 1;
 		}
+
 		for (int spinId = 0; spinId < *size; ++spinId) {
 			__syncthreads();
 			if (thrId > spinId)
@@ -179,8 +183,8 @@ void CudaOperations::cudaPull(double pStep) {
 	cudaMemcpy(devTemp, &temp, sizeof(double), cudaMemcpyHostToDevice);
 	int* itC;
 	cudaMalloc((void**) &itC, sizeof(int));
-	cudaStabilize<<<1, size>>>(devMat, devSpins, devSize, devTemp, forceElems,
-			diff, itC);
+	cudaStabilize<<<1, size>>>(devMat, devSpins, devSize, devTemp, meanFieldElems,
+			delta, itC);
 	cudaDeviceSynchronize();
 	do {
 		temp -= pStep;
@@ -188,7 +192,7 @@ void CudaOperations::cudaPull(double pStep) {
 				cudaMemcpy(devTemp, &temp, sizeof(double),
 						cudaMemcpyHostToDevice), "memcpy temperature");
 		cudaStabilize<<<1, size>>>(devMat, devSpins, devSize, devTemp,
-				forceElems, diff, itC);
+				meanFieldElems, delta, itC);
 		cudaDeviceSynchronize();
 	} while (temp > 0);
 
