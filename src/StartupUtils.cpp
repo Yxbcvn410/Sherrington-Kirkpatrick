@@ -10,8 +10,8 @@
 #include <stdio.h>
 #include <fstream>
 #include <unistd.h>
-
 #include "StartupUtils.h"
+#include "FilesystemProvider.h"
 using namespace std;
 
 int StartupUtils::grabFromCLI(double& startRef, double& endRef, double& stepRef,
@@ -21,16 +21,19 @@ int StartupUtils::grabFromCLI(double& startRef, double& endRef, double& stepRef,
 	string resp = "";
 	cin >> resp;
 	randRef = false;
+	bool mkDir = false;
 	if (resp == "yes" || resp == "y") {
 		randRef = true;
 		cout << "Randomizer initialized." << endl;
 	} else
 		cout << "Randomizer was not initialized" << "\n";
-	cout << "Working dir? (-c to use current working directory)\n"
+	cout << "Working dir? (-a to auto-create in current working directory)\n"
 			<< getCurrentWorkingDir() << endl;
 	cin >> wDirRef;
-	if (wDirRef == "-c" || wDirRef == "-C")
-		wDirRef = getCurrentWorkingDir();
+	if (wDirRef == "-a" || wDirRef == "-A") {
+		mkDir = true;
+		wDirRef = "";
+	}
 	cout << "Lower temperature limit?" << endl;
 	cin >> startRef;
 	cout << "Upper temperature limit?" << endl;
@@ -51,33 +54,46 @@ int StartupUtils::grabFromCLI(double& startRef, double& endRef, double& stepRef,
 		return 1;
 	} else
 		modelRef = Matrix(ifstream(resp));
+	if (mkDir) {
+		ostringstream oss;
+		oss << "calc" << modelRef.getSize() << "_";
+		int dirIndex = FilesystemProvider::FreeFileIndex(getCurrentWorkingDir(),
+				oss.str(), "", false);
+		oss << dirIndex;
+		wDirRef = getCurrentWorkingDir() + "/" + oss.str();
+		FilesystemProvider::makeDirectory(wDirRef, "");
+	}
 	return 0;
 }
 
 int StartupUtils::grabFromFile(double& startRef, double& endRef,
 		double& stepRef, double& pStepRef, Matrix& modelRef, int& thrCountRef,
 		bool& randRef, string& wDirRef, string confLocation) {
-	randRef = true;
-	stepRef = 0.001;
-	pStepRef = 0.1;
 	ifstream ifs;
 	ifs.open(confLocation);
 	if (ifs.good())
 		cout << "Config file detected, stay calm..." << endl;
 	else {
-		cout << "Error 00: Config file not detected." << "Is it in the working directory?" << endl;
+		cout << "Error 00: Config file not detected.\n"
+				<< "Is it in the working directory?" << endl;
 		return -1;
 	}
 	string s;
-	int needSave = 0;
+	bool mkDir = false;
+	bool cStep = false;
+	int needSave = 1;
 	ifs >> s;
 	while (ifs.peek() != EOF) {
 		if (s == "&start") {
 			ifs >> startRef;
-		} else if (s == "&end") {
+		} else if (s == "&end" || s == "&e") {
 			ifs >> endRef;
 		} else if (s == "&step") {
 			ifs >> stepRef;
+			cStep = false;
+		} else if (s == "&c" || s == "&count") {
+			ifs >> stepRef;
+			cStep = true;
 		} else if (s == "&pstep" || s == "&ps") {
 			ifs >> pStepRef;
 		} else if (s == "&tc" || s == "&tcount") {
@@ -90,14 +106,11 @@ int StartupUtils::grabFromFile(double& startRef, double& endRef,
 			needSave = 1;
 		} else if (s == "&wdir" || s == "&wd" || s == "&dir") {
 			ifs >> wDirRef;
-			ifstream mfs;
-			mfs.open(wDirRef);
-			if (!mfs.good()) {
-				cout << "Error 03 in launch config:\n"
-						<< "Working directory specified does not exist."
-						<< endl;
-				return -1;
-			}
+			if (wDirRef == "-a" || wDirRef == "-A") {
+				mkDir = true;
+				wDirRef = "";
+			} else
+				mkDir = false;
 		} else if (s == "&mloc" || s == "&ml") {
 			needSave = 0;
 			string loc;
@@ -136,6 +149,17 @@ int StartupUtils::grabFromFile(double& startRef, double& endRef,
 	}
 	if (!randRef)
 		cout << "WARNING: Random generator was not initialized." << endl;
+	if (mkDir) {
+		ostringstream oss;
+		oss << "calc" << modelRef.getSize() << "_";
+		int dirIndex = FilesystemProvider::FreeFileIndex(getCurrentWorkingDir(),
+				oss.str(), "", false);
+		oss << dirIndex;
+		wDirRef = getCurrentWorkingDir() + "/" + oss.str();
+		FilesystemProvider::makeDirectory(wDirRef, "");
+	}
+	if (cStep)
+		stepRef = (endRef - startRef) / stepRef;
 	cout << "Config parsing complete, success." << endl;
 	return needSave;
 }

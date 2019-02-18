@@ -1,5 +1,5 @@
-#define VERSION 2.7
-#define BUILD 29
+#define VERSION 2.8
+#define BUILD 35
 
 #include <stdio.h>
 #include <iostream>
@@ -8,6 +8,7 @@
 #include <thread>
 #include <unistd.h>
 #include <ctime>
+#include <mutex>
 #include "Matrix.h"
 #include "Spinset.h"
 #include "ModelUtils.h"
@@ -19,6 +20,13 @@
 using namespace std;
 using namespace FilesystemProvider;
 
+//Minimum storage
+double minEnergy;
+int minCount;
+string minSpins;
+mutex mcMutex;
+mutex mesMutex;
+
 void analyzeTempInterval(const Matrix &matrix, double start, double end,
 		double step, double pullStep, const string &dir, const string &fname,
 		int seed, double &progress) {
@@ -28,24 +36,40 @@ void analyzeTempInterval(const Matrix &matrix, double start, double end,
 	progress = 0;
 
 	CudaOperations::cudaInit(matrix);
-
-	int findex = FreeFileIndex(dir, fname, ".txt");
+	int findex = FreeFileIndex(dir, fname, ".txt", true);
 	ofs.open(ComposeFilename(dir, fname, findex, ".txt"), ios::out);
 	ofs << "t e" << endl;
 	ofs.flush();
 	Plotter::AddDatafile(ComposeFilename(dir, fname, findex, ".txt"),
 			Plotter::POINTS);
 
-	double t = start;
-	while (t < end) {
-		spinset.temp = t;
-		progress = (t - start) * (t + start) / ((end - start) * (end + start));
+	double currentTemp = start;
+	minCount = 1;
+	while (currentTemp < end) {
+		spinset.temp = currentTemp;
+		progress = (currentTemp - start) * (currentTemp + start)
+				/ ((end - start) * (end + start));
 		spinset.Randomize(false);
+
 		CudaOperations::cudaLoadSpinset(spinset);
 		CudaOperations::cudaPull(pullStep);
-		//ModelUtils::PullToZeroTemp(matrix, spinset, pullStep);
-		ofs << t << " \t" << CudaOperations::extractEnergy() << endl;
-		t += step;
+		ofs << currentTemp << " \t" << CudaOperations::extractEnergy() << endl;
+		if (spinset.getEnergy(matrix) < minEnergy) {
+			mesMutex.lock();
+			if (spinset.getEnergy(matrix) < minEnergy) {
+				minEnergy = spinset.getEnergy(matrix);
+				minSpins = spinset.getSpins();
+				minCount = 1;
+			}
+			mesMutex.unlock();
+		} else if (spinset.getEnergy(matrix) == minEnergy) {
+			mcMutex.lock();
+			if (spinset.getEnergy(matrix) == minEnergy)
+				minCount++; //*/
+			mcMutex.unlock();
+		}
+		currentTemp += step;
+
 	}
 	ofs.flush();
 	ofs.close();
@@ -95,16 +119,20 @@ int main(int argc, char* argv[]) {
 	//Init model
 	Matrix m(2);
 	string dir;
-	double dTemp;
+	double dTemp = 0;
 	double upTemp;
-	double step;
-	double pullStep;
+	double step = 0.001;
+	double pullStep = 0.1;
 	int thrC;
 	int nSave;
-	bool doRand;
+	bool doRand = true;
 	ofstream logWriter;
-	if (argc == 2) {
+	if (argc >= 2) {
 		//Acquire init config from config
+		m = Matrix(stoi(argv[1]));
+		if(argc >= 3){
+			upTemp = stod(argv[2]);
+		}
 		logWriter << "Parsing init config..." << endl;
 		string wd = StartupUtils::getCurrentWorkingDir();
 		nSave = StartupUtils::grabFromFile(ref(dTemp), ref(upTemp), ref(step),
@@ -133,7 +161,7 @@ int main(int argc, char* argv[]) {
 		m.Randomize();
 		fstream fs;
 		fs.open(
-				ComposeFilename(dir, "mat", FreeFileIndex(dir, "mat", ".txt"),
+				ComposeFilename(dir, "mat", FreeFileIndex(dir, "mat", ".txt", true),
 						".txt"), ios::out);
 		fs << m.getMatrix();
 		fs.flush();
@@ -147,7 +175,7 @@ int main(int argc, char* argv[]) {
 	}
 	//Init plot
 	Plotter::InitScriptfile(
-			ComposeFilename(dir, "img", FreeFileIndex(dir, "img", ".png"),
+			ComposeFilename(dir, "img", FreeFileIndex(dir, "img", ".png", true),
 					".png"), "");
 
 	//Launch threads
@@ -205,6 +233,13 @@ int main(int argc, char* argv[]) {
 
 	logWriter << "Calculation complete in "
 			<< getTimeString(difftime(time(NULL), start)) << endl;
+	ofstream spinWriter;
+	spinWriter.open(dir + "/spins.txt", ios::out);
+	spinWriter << "Minimum energy: " << minEnergy << endl;
+	spinWriter << "Hit count: " << minCount << endl;
+	spinWriter << "Spin assessment:" << endl << minSpins << endl;
+	spinWriter.flush();
+	spinWriter.close();
 	Plotter::doPlot();
 	Plotter::clearScriptfile();
 }
