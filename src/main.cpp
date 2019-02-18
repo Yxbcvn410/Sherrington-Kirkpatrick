@@ -15,6 +15,7 @@
 #include "FilesystemProvider.h"
 #include "Plotter.h"
 #include "StartupUtils.h"
+#include "CudaOperations.h"
 
 using namespace std;
 using namespace FilesystemProvider;
@@ -34,6 +35,7 @@ void analyzeTempInterval(const Matrix &matrix, double start, double end,
 	ofstream ofs;
 	progress = 0;
 
+	CudaOperations::cudaInit(matrix);
 	int findex = FreeFileIndex(dir, fname, ".txt", true);
 	ofs.open(ComposeFilename(dir, fname, findex, ".txt"), ios::out);
 	ofs << "t e" << endl;
@@ -48,8 +50,10 @@ void analyzeTempInterval(const Matrix &matrix, double start, double end,
 		progress = (currentTemp - start) * (currentTemp + start)
 				/ ((end - start) * (end + start));
 		spinset.Randomize(false);
-		ModelUtils::PullToZeroTemp(matrix, spinset, pullStep);
-		ofs << currentTemp << " \t" << spinset.getEnergy(matrix) << endl;
+
+		CudaOperations::cudaLoadSpinset(spinset);
+		CudaOperations::cudaPull(pullStep);
+		ofs << currentTemp << " \t" << CudaOperations::extractEnergy() << endl;
 		if (spinset.getEnergy(matrix) < minEnergy) {
 			mesMutex.lock();
 			if (spinset.getEnergy(matrix) < minEnergy) {
@@ -65,6 +69,7 @@ void analyzeTempInterval(const Matrix &matrix, double start, double end,
 			mcMutex.unlock();
 		}
 		currentTemp += step;
+
 	}
 	ofs.flush();
 	ofs.close();
@@ -192,7 +197,7 @@ int main(int argc, char* argv[]) {
 	int count = 1;
 	double progr;
 	while (flag) {
-		this_thread::sleep_for(1000ms);
+		this_thread::sleep_for(std::chrono::milliseconds(1000));
 		system("clear");
 		flag = false;
 		progr = 0;

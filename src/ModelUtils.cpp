@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <iostream>
 #include <cmath>
+#include "CudaOperations.h"
 
 double iterate(Matrix matrix, Spinset spinset, double coef) {
 	double out = 0;

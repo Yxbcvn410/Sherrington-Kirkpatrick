@@ -7,6 +7,7 @@
 
 #include "Spinset.h"
 #include "Matrix.h"
+#include "CudaOperations.h"
 #include <stdio.h>
 #include <iostream>
 #include <sstream>
@@ -41,19 +42,19 @@ void Spinset::seed(int seed){
 	random.seed(seed);
 }
 
-int Spinset::getSize() {
+const int Spinset::getSize() {
 	int s;
 	s = size;
 	return s;
 }
 
-double Spinset::getSpin(int index) {
+const double Spinset::getSpin(int index) {
 	double d;
 	d = spins[index];
 	return d;
 }
 
-string Spinset::getSpins() {
+const string Spinset::getSpins() {
 	ostringstream out;
 	for (int i = 0; i < size; ++i) {
 		out << spins[i] << " ";
@@ -61,7 +62,7 @@ string Spinset::getSpins() {
 	return out.str();
 }
 
-double Spinset::getForce(int index, Matrix matrix) {
+const double Spinset::getForce(const int index, Matrix matrix) {
 	double out = 0;
 	for (int i = 0; i < size; i++) {
 		if (i < index) {
@@ -69,10 +70,13 @@ double Spinset::getForce(int index, Matrix matrix) {
 		} else
 			out += spins[i] * matrix.getCell(index, i);
 	}
-	return out;
+	cout << out << endl;
+	string buf;
+	cin >> buf;
+	return out;//*/
 }
 
-double Spinset::getEnergy(Matrix matrix) {
+const double Spinset::getEnergy(Matrix matrix) {
 	double out = 0;
 	for (int i = 0; i < size; ++i) {
 		for (int j = i + 1; j < size; ++j) {
@@ -82,7 +86,7 @@ double Spinset::getEnergy(Matrix matrix) {
 	return out;
 }
 
-double Spinset::getPreferredSpin(int index, Matrix matrix) {
+const double Spinset::getPreferredSpin(int index, Matrix matrix) {
 	if (temp <= 0) {
 		if (getForce(index, matrix) > 0)
 			return -1;
@@ -92,4 +96,8 @@ double Spinset::getPreferredSpin(int index, Matrix matrix) {
 			return 0;
 	} else
 		return tanh((-1 * getForce(index, matrix)) / temp);
+}
+
+const double* Spinset::getArray(){
+	return spins;
 }
