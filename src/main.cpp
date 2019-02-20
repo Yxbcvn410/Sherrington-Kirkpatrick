@@ -1,5 +1,5 @@
-#define VERSION 3.3
-#define BUILD 56
+#define VERSION 3.4
+#define BUILD 57
 
 #include <stdio.h>
 #include <iostream>
@@ -14,7 +14,7 @@
 #include "FilesystemProvider.h"
 #include "Plotter.h"
 #include "StartupUtils.h"
-#include "CudaOperations.h"
+#include "CudaOperator.h"
 
 using namespace std;
 using namespace FilesystemProvider;
@@ -34,6 +34,9 @@ void analyzeTempInterval(const Matrix &matrix, double start, double end,
 	ofstream ofs;
 	progress = 0;
 
+	//Init CUDA device
+	CudaOperator op(matrix);
+
 	int findex = FreeFileIndex(dir, fname, ".txt", true);
 	ofs.open(ComposeFilename(dir, fname, findex, ".txt"), ios::out);
 	ofs << "t e" << endl;
@@ -49,22 +52,22 @@ void analyzeTempInterval(const Matrix &matrix, double start, double end,
 				/ ((end - start) * (end + start));
 		spinset.Randomize(false);
 
-		CudaOperations::cudaLoadSpinset(spinset);
-		CudaOperations::cudaPull(pullStep);
-		double spinsetEnergy = CudaOperations::extractEnergy();
+		op.cudaLoadSpinset(spinset);
+		op.cudaPull(pullStep);
+		double spinsetEnergy = op.extractEnergy();
 		ofs << currentTemp << " \t" << spinsetEnergy << endl;
 		if (spinsetEnergy < minEnergy) {
 			mesMutex.lock();
 			if (spinsetEnergy < minEnergy) {
 				minEnergy = spinsetEnergy;
-				minSpins = CudaOperations::extractSpinset().getSpins();
+				minSpins = op.extractSpinset().getSpins();
 				minCount = 1;
 			}
 			mesMutex.unlock();
 		} else if (spinsetEnergy == minEnergy) {
 			mcMutex.lock();
 			if (spinsetEnergy == minEnergy)
-				minCount++; //*/
+				minCount++;
 			mcMutex.unlock();
 		}
 		currentTemp += step;
@@ -177,10 +180,6 @@ int main(int argc, char* argv[]) {
 	Plotter::InitScriptfile(
 			ComposeFilename(dir, "img", FreeFileIndex(dir, "img", ".png", true),
 					".png"), "");
-
-	//Init CUDA device
-	CudaOperations::cudaInit(matrix);
-	CudaOperations::cudaSetBlock();
 
 	//Launch threads
 	double* statuses = new double[thrC];

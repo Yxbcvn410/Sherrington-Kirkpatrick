@@ -7,7 +7,7 @@
 
 #include "Spinset.h"
 #include "Matrix.h"
-#include "CudaOperations.h"
+#include "CudaOperator.h"
 #include <stdio.h>
 #include <iostream>
 #include <sstream>

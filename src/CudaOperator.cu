@@ -1,24 +1,9 @@
 #include "Matrix.h"
 #include "Spinset.h"
-#include "CudaOperations.h"
+#include "CudaOperator.h"
 #include <cuda_runtime.h>
 #include <sstream>
 #include <math.h>
-
-//GPU memory pointers
-double* devSpins = NULL; //Spinset
-double* devMat = NULL; //Matrix
-int* devSize = NULL; //Size
-double* devTemp = NULL; //Temperature
-double* meanFieldElems = NULL; //Temporary storage for force computation
-double* delta = NULL;
-double* energyElems = NULL; //Temporary storage for energy computation
-double* energy = NULL;
-
-//CPU variables
-double temp;
-int size;
-int blockSize;
 
 void checkError(cudaError_t err, string arg = "") {
 	if (err != cudaSuccess) {
@@ -29,7 +14,7 @@ void checkError(cudaError_t err, string arg = "") {
 	}
 }
 
-void CudaOperations::cudaInit(Matrix matrix) {
+CudaOperator::CudaOperator(Matrix matrix) {
 	// Set pointers to null
 	devSpins = NULL;
 	devMat = NULL;
@@ -58,16 +43,13 @@ void CudaOperations::cudaInit(Matrix matrix) {
 			cudaMemcpy(devMat, matrix.getArray(), sizeof(double) * size * size,
 					cudaMemcpyHostToDevice), "memcpy mat to host");
 	cudaMemcpy(devSize, &size, sizeof(int), cudaMemcpyHostToDevice);
-}
 
-void CudaOperations::cudaSetBlock() {
-	//Call after cudaInit() only!!!
 	cudaDeviceProp deviceProp;
 	checkError(cudaGetDeviceProperties(&deviceProp, 0), "getProp");
 	blockSize = deviceProp.maxThreadsPerBlock;
 }
 
-void CudaOperations::cudaLoadSpinset(Spinset spinset) {
+void CudaOperator::cudaLoadSpinset(Spinset spinset) {
 	checkError(
 			cudaMemcpy(devSpins, spinset.getArray(), sizeof(double) * size,
 					cudaMemcpyHostToDevice), "memcpy spinset to device");
@@ -76,7 +58,7 @@ void CudaOperations::cudaLoadSpinset(Spinset spinset) {
 	temp = spinset.temp;
 }
 
-void CudaOperations::cudaClear() {
+void CudaOperator::cudaClear() {
 	//Free GPU memory
 	cudaFree(devSpins);
 	cudaFree(devMat);
@@ -119,7 +101,7 @@ __global__ void quickSumEnergy(double* devMat, double* devSpins, int* size,
 		*output = energyTempor[0];
 }
 
-double CudaOperations::extractEnergy() {
+double CudaOperator::extractEnergy() {
 	quickSumEnergy<<<1, blockSize>>>(devMat, devSpins, devSize, energy,
 			blockSize, energyElems);
 	cudaDeviceSynchronize();
@@ -129,7 +111,7 @@ double CudaOperations::extractEnergy() {
 	return out;
 }
 
-Spinset CudaOperations::extractSpinset() {
+Spinset CudaOperator::extractSpinset() {
 	double* hSpins = (double*) malloc(sizeof(double) * size);
 	checkError(
 			cudaMemcpy(hSpins, devSpins, sizeof(double) * size,
@@ -211,7 +193,7 @@ __global__ void cudaStabilize(double* mat, double* spins, int* size,
 	}
 }
 
-void CudaOperations::cudaPull(double pStep) {
+void CudaOperator::cudaPull(double pStep) {
 	cudaMemcpy(devTemp, &temp, sizeof(double), cudaMemcpyHostToDevice);
 	int* itC;
 	cudaMalloc((void**) &itC, sizeof(int));
