@@ -1,5 +1,5 @@
-#define VERSION 3.2
-#define BUILD 52
+#define VERSION 3.3
+#define BUILD 56
 
 #include <stdio.h>
 #include <iostream>
@@ -34,7 +34,6 @@ void analyzeTempInterval(const Matrix &matrix, double start, double end,
 	ofstream ofs;
 	progress = 0;
 
-	CudaOperations::cudaInit(matrix);
 	int findex = FreeFileIndex(dir, fname, ".txt", true);
 	ofs.open(ComposeFilename(dir, fname, findex, ".txt"), ios::out);
 	ofs << "t e" << endl;
@@ -117,7 +116,7 @@ int main(int argc, char* argv[]) {
 			<< BUILD << endl;
 
 	//Init model
-	Matrix m(2);
+	Matrix matrix(2);
 	string dir;
 	double dTemp = 0;
 	double upTemp;
@@ -129,20 +128,20 @@ int main(int argc, char* argv[]) {
 	ofstream logWriter;
 	if (argc >= 2) {
 		//Acquire init config from config
-		m = Matrix(stoi(argv[1]));
+		matrix = Matrix(stoi(argv[1]));
 		if (argc >= 3) {
 			upTemp = stod(argv[2]);
 		}
 		logWriter << "Parsing init config..." << endl;
 		string wd = StartupUtils::getCurrentWorkingDir();
 		nSave = StartupUtils::grabFromFile(ref(dTemp), ref(upTemp), ref(step),
-				ref(pullStep), ref(m), ref(thrC), ref(doRand), ref(dir),
+				ref(pullStep), ref(matrix), ref(thrC), ref(doRand), ref(dir),
 				wd + "/config");
 
 	} else {
 		//Acquire init config from cin
 		nSave = StartupUtils::grabFromCLI(ref(dTemp), ref(upTemp), ref(step),
-				ref(pullStep), ref(m), ref(thrC), ref(doRand), ref(dir));
+				ref(pullStep), ref(matrix), ref(thrC), ref(doRand), ref(dir));
 	}
 	logWriter.open(dir + "/l.log", ios::out | ios::app);
 
@@ -158,17 +157,17 @@ int main(int argc, char* argv[]) {
 	srand(time(0));
 
 	if (nSave == 1) { //Export matrix if needed
-		m.Randomize();
+		matrix.Randomize();
 		fstream fs;
 		fs.open(
 				ComposeFilename(dir, "mat",
 						FreeFileIndex(dir, "mat", ".txt", true), ".txt"),
 				ios::out);
-		fs << m.getMatrix();
+		fs << matrix.getMatrix();
 		fs.flush();
-		logWriter << "new matrix, size " << m.getSize() << endl;
+		logWriter << "new matrix, size " << matrix.getSize() << endl;
 	} else
-		logWriter << "existing matrix, size " << m.getSize() << endl;
+		logWriter << "existing matrix, size " << matrix.getSize() << endl;
 
 	if (!doRand) { // Init random if needed
 		srand(1);
@@ -179,12 +178,16 @@ int main(int argc, char* argv[]) {
 			ComposeFilename(dir, "img", FreeFileIndex(dir, "img", ".png", true),
 					".png"), "");
 
+	//Init CUDA device
+	CudaOperations::cudaInit(matrix);
+	CudaOperations::cudaSetBlock();
+
 	//Launch threads
 	double* statuses = new double[thrC];
 	for (int i = 0; i < thrC; ++i) {
 		const int j = i;
 		statuses[j] = 0;
-		thread ht(analyzeTempInterval, m, dTemp + step * j, upTemp,
+		thread ht(analyzeTempInterval, matrix, dTemp + step * j, upTemp,
 				(step * thrC), pullStep, dir, "log", rand(), ref(statuses[j]));
 		ht.detach();
 		logWriter << "Launched thread #" << i + 1 << endl;
@@ -239,7 +242,8 @@ int main(int argc, char* argv[]) {
 	spinWriter << "Minimum energy: " << minEnergy << endl;
 	spinWriter << "Hit count: " << minCount << endl;
 	spinWriter << "Temperature bounds: from " << dTemp << " to " << upTemp
-			<< ", " << (int) ((upTemp - dTemp) / step) << " points in total" << endl;
+			<< ", " << (int) ((upTemp - dTemp) / step) << " points in total"
+			<< endl;
 	spinWriter << "Spin assessment:" << endl << minSpins << endl;
 	spinWriter << "Computed using " << thrC << " threads in "
 			<< getTimeString(difftime(time(NULL), start)) << endl;

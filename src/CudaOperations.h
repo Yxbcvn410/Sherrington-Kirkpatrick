@@ -13,6 +13,7 @@
 
 namespace CudaOperations{
 void cudaInit(Matrix matrix);
+void cudaSetBlock();
 void cudaLoadSpinset(Spinset spinset);
 void cudaPull(double pStep);
 double extractEnergy();
