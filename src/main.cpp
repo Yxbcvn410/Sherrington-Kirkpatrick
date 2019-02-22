@@ -1,5 +1,5 @@
-#define VERSION 4.1
-#define BUILD 64
+#define VERSION 4.2
+#define BUILD 65
 
 #include <stdio.h>
 #include <iostream>
@@ -26,6 +26,9 @@ string minSpins;
 mutex mcMutex;
 mutex mesMutex;
 
+double progress;
+time_t start;
+
 string composeProgressbar(double state, int pbLen) {
 	ostringstream os;
 	if (state == -1)
@@ -47,7 +50,7 @@ string composeProgressbar(double state, int pbLen) {
 }
 
 string getTimeString(double time) {
-	if (time < 0)
+	if (time <= 0)
 		return "0 h 0 m 0 s";
 	ostringstream oss;
 	int d = (int) (time / (24 * 3600));
@@ -60,6 +63,29 @@ string getTimeString(double time) {
 	oss << h << " h " << m << " m " << s << " s";
 	return oss.str();
 
+}
+
+void CLIControl() {
+	while (progress != -1) {
+		system("clear");
+		system("tput cols > /tmp/lololol.lol");
+		int termsize = 75;
+		try {
+			ostringstream iss;
+			iss << ifstream("/tmp/lololol.lol").rdbuf();
+			termsize = stoi(iss.str());
+		} catch (exception & e) {
+			termsize = 75;
+		}
+		cout << "Progress: " << composeProgressbar(progress, termsize - 20)
+				<< endl;
+		cout << "Time elapsed: " << getTimeString(time(NULL) - start) << endl;
+		cout << "ETA: "
+				<< getTimeString(
+						(time(NULL) - start) * (1 - progress) / progress)
+				<< endl;
+		this_thread::sleep_for(std::chrono::seconds(1));
+	}
 }
 
 int main(int argc, char* argv[]) {
@@ -125,18 +151,21 @@ int main(int argc, char* argv[]) {
 		srand(1);
 		logWriter << "Random de-initialized." << endl;
 	}
-	//Init plot, clock, CUDA
+	// Init plot, clock, CUDA, CLI
 	Plotter::InitScriptfile(
 			ComposeFilename(dir, "img", FreeFileIndex(dir, "img", ".png", true),
 					".png"), "");
-	time_t start = time(NULL);
+	start = time(NULL);
 	CudaOperator op(matrix, blockCount);
 	int dataIndex = FreeFileIndex(dir, "data", ".txt", true);
 	ofstream dataStream(ComposeFilename(dir, "data", dataIndex, ".txt"));
 	dataStream << "t e" << endl;
 	Plotter::AddDatafile(ComposeFilename(dir, "data", dataIndex, ".txt"),
 			Plotter::POINTS);
+	thread th(CLIControl);
+	th.detach();
 
+	// Start calculations
 	Spinset spins(matrix.getSize());
 	spins.temp = dTemp;
 	while (spins.temp < upTemp) {
@@ -148,7 +177,8 @@ int main(int argc, char* argv[]) {
 		op.cudaPull(pullStep);
 		spins.temp -= step * blockCount;
 		for (int i = 0; i < blockCount; i++) {
-			if(spins.temp >= upTemp) continue;
+			if (spins.temp >= upTemp)
+				continue;
 			double nrg = op.extractEnergy(i);
 			if (nrg < minEnergy) {
 				minEnergy = nrg;
@@ -159,31 +189,16 @@ int main(int argc, char* argv[]) {
 			dataStream << spins.temp << " " << nrg << "\n";
 			spins.temp += step;
 		}
-		system("clear");
-		system("tput cols > /tmp/lololol.lol");
-		int termsize = 75;
-		try {
-			ostringstream iss;
-			iss << ifstream("/tmp/lololol.lol").rdbuf();
-			termsize = stoi(iss.str());
-		} catch (exception & e) {
-			termsize = 75;
-		}
-		double progress = (spins.temp * spins.temp - dTemp * dTemp)
+		progress = (spins.temp * spins.temp - dTemp * dTemp)
 				/ (upTemp * upTemp - dTemp * dTemp);
-		cout << "Progress: " << composeProgressbar(progress, termsize - 15)
-				<< endl;
-		cout << "Time elapsed: " << getTimeString(time(NULL) - start) << endl;
-		cout << "ETA: "
-				<< getTimeString(
-						(time(NULL) - start) * (1 - progress) / progress)
-				<< endl;
-		logWriter << "[" << getTimeString(time(NULL) - start)
-				<< "] Analyzing temperature " << spins.temp
-				<< ", upper limit - " << upTemp << endl;
+		logWriter << "[" << getTimeString(time(NULL) - start) << "] ETA: "
+							<< getTimeString(
+									(time(NULL) - start) * (1 - progress) / progress)
+							<< endl;
 		dataStream.flush();
 	}
 
+	progress = -1;
 	logWriter << "Calculation complete in "
 			<< getTimeString(difftime(time(NULL), start)) << endl;
 	ofstream spinWriter;
