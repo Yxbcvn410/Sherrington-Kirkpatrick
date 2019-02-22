@@ -129,7 +129,9 @@ __global__ void cudaKernelPull(double* mat, double* spins, int* size,
 	int thrId = threadIdx.x;
 
 	bool flag;
-	while (temp[blockId] >= 0) {
+	while (temp[blockId] > 0) {
+		//Lessen temperature
+		temp[blockId] = temp[blockId] - tempStep;
 		//Stabilize
 		flag = true;
 		while (flag) {
@@ -195,7 +197,6 @@ __global__ void cudaKernelPull(double* mat, double* spins, int* size,
 			if (*diff < 0.000001)
 				flag = false; // diff link is same for all threads; Abort stabilization if diff is appropriate
 		}
-		temp[blockId] = temp[blockId] - tempStep;
 	}
 }
 

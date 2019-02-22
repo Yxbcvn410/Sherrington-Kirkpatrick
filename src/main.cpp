@@ -1,5 +1,5 @@
 #define VERSION 4.2
-#define BUILD 65
+#define BUILD 66
 
 #include <stdio.h>
 #include <iostream>
@@ -114,14 +114,13 @@ int main(int argc, char* argv[]) {
 		nSave = StartupUtils::grabFromFile(ref(dTemp), ref(upTemp), ref(step),
 				ref(pullStep), ref(matrix), ref(blockCount), ref(doRand),
 				ref(dir), wd + "/config");
-
 	} else {
 		//Acquire init config from cin
 		nSave = StartupUtils::grabFromCLI(ref(dTemp), ref(upTemp), ref(step),
 				ref(pullStep), ref(matrix), ref(blockCount), ref(doRand),
 				ref(dir));
 	}
-	logWriter.open(dir + "/l.log", ios::out | ios::app);
+	logWriter.open(dir + "/log.txt", ios::out | ios::app);
 
 	if (nSave == -1) { // If an error occured while parsing
 		cout << "Program terminated due to an error in launch config." << endl;
@@ -137,10 +136,7 @@ int main(int argc, char* argv[]) {
 	if (nSave == 1) { //Export matrix if needed
 		matrix.Randomize();
 		fstream fs;
-		fs.open(
-				ComposeFilename(dir, "mat",
-						FreeFileIndex(dir, "mat", ".txt", true), ".txt"),
-				ios::out);
+		fs.open(ComposeFilename(dir, "mat", ".txt"), ios::out);
 		fs << matrix.getMatrix();
 		fs.flush();
 		logWriter << "new matrix, size " << matrix.getSize() << endl;
@@ -152,16 +148,14 @@ int main(int argc, char* argv[]) {
 		logWriter << "Random de-initialized." << endl;
 	}
 	// Init plot, clock, CUDA, CLI
-	Plotter::InitScriptfile(
-			ComposeFilename(dir, "img", FreeFileIndex(dir, "img", ".png", true),
-					".png"), "");
+	FilesystemProvider::makeFile(ComposeFilename(dir, "img", ".png"));
+	Plotter::InitScriptfile(ComposeFilename(dir, "img", ".png"),
+			"Зависимость энергии от температуры");
 	start = time(NULL);
 	CudaOperator op(matrix, blockCount);
-	int dataIndex = FreeFileIndex(dir, "data", ".txt", true);
-	ofstream dataStream(ComposeFilename(dir, "data", dataIndex, ".txt"));
+	ofstream dataStream(ComposeFilename(dir, "data", ".txt"));
 	dataStream << "t e" << endl;
-	Plotter::AddDatafile(ComposeFilename(dir, "data", dataIndex, ".txt"),
-			Plotter::POINTS);
+	Plotter::AddDatafile(ComposeFilename(dir, "data", ".txt"), Plotter::POINTS);
 	thread th(CLIControl);
 	th.detach();
 
@@ -169,12 +163,19 @@ int main(int argc, char* argv[]) {
 	Spinset spins(matrix.getSize());
 	spins.temp = dTemp;
 	while (spins.temp < upTemp) {
+		logWriter << "[" << getTimeString(time(NULL) - start) << "] "
+				<< "Starting pull session. Loading spinsets..." << endl;
 		for (int i = 0; i < blockCount; i++) {
 			spins.Randomize(false);
 			op.cudaLoadSpinset(spins, i);
 			spins.temp += step;
 		}
+		logWriter << "[" << getTimeString(time(NULL) - start) << "] "
+				<< "Spinset loading complete. Starting CUDA kernel function..."
+				<< endl;
 		op.cudaPull(pullStep);
+		logWriter << "[" << getTimeString(time(NULL) - start) << "] "
+				<< "Kernel returned success. Acquiring data..." << endl;
 		spins.temp -= step * blockCount;
 		for (int i = 0; i < blockCount; i++) {
 			if (spins.temp >= upTemp)
@@ -191,10 +192,9 @@ int main(int argc, char* argv[]) {
 		}
 		progress = (spins.temp * spins.temp - dTemp * dTemp)
 				/ (upTemp * upTemp - dTemp * dTemp);
-		logWriter << "[" << getTimeString(time(NULL) - start) << "] ETA: "
-							<< getTimeString(
-									(time(NULL) - start) * (1 - progress) / progress)
-							<< endl;
+		logWriter << "[" << getTimeString(time(NULL) - start) << "] "
+				<< "Pull session complete, current temperature: " << spins.temp
+				<< endl << endl;
 		dataStream.flush();
 	}
 
@@ -203,13 +203,14 @@ int main(int argc, char* argv[]) {
 			<< getTimeString(difftime(time(NULL), start)) << endl;
 	ofstream spinWriter;
 	spinWriter.open(dir + "/spins.txt", ios::out);
+	spinWriter << "Matrix size: " << matrix.getSize() << endl;
 	spinWriter << "Minimum energy: " << minEnergy << endl;
 	spinWriter << "Hit count: " << minCount << endl;
 	spinWriter << "Temperature bounds: from " << dTemp << " to " << upTemp
 			<< ", " << (int) ((upTemp - dTemp) / step) << " points in total"
 			<< endl;
 	spinWriter << "Spin assessment:" << endl << minSpins << endl;
-	spinWriter << "Computed using " << blockCount << " threads in "
+	spinWriter << "Computed using " << blockCount << " thread blocks in "
 			<< getTimeString(difftime(time(NULL), start)) << endl;
 	spinWriter.flush();
 	spinWriter.close();

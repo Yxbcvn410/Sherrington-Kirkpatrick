@@ -12,10 +12,13 @@ using namespace std;
 
 namespace FilesystemProvider {
 bool FileExists(string filename);
-int FreeFileIndex(string parentName, string key, string extention, bool reserve);
+int FreeFileIndex(string parentName, string key, string extention,
+		bool reserve);
+string ComposeFilename(string parentName, string key, string extention);
 string ComposeFilename(string parentName, string key, int index,
 		string extention);
 void makeDirectory(string pathTo, string name);
+void makeFile(string filename);
 }
 
 #endif /* FILESYSTEMPROVIDER_H_ */
