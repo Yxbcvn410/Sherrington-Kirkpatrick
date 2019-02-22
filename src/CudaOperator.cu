@@ -14,7 +14,7 @@ void checkError(cudaError_t err, string arg = "") {
 	}
 }
 
-CudaOperator::CudaOperator(Matrix matrix) {
+CudaOperator::CudaOperator(Matrix matrix, int blockCnt) {
 	// Set pointers to null
 	devSpins = NULL;
 	devMat = NULL;
@@ -26,16 +26,21 @@ CudaOperator::CudaOperator(Matrix matrix) {
 
 	size = matrix.getSize();
 	blockSize = 512;
+	blockCount = blockCnt;
+
+	cudaDeviceProp deviceProp;
+	checkError(cudaGetDeviceProperties(&deviceProp, 0), "getProp");
+	blockSize = deviceProp.maxThreadsPerBlock;
 
 	// Allocate memory for pointers at GPU
-	checkError(cudaMalloc((void**) &meanFieldElems, sizeof(double) * size),
-			"malloc");
+	checkError(
+			cudaMalloc((void**) &meanFieldElems,
+					sizeof(double) * size * blockCount), "malloc");
 	cudaMalloc((void**) &devMat, sizeof(double) * size * size);
-	cudaMalloc((void**) &devSpins, sizeof(double) * size);
+	cudaMalloc((void**) &devSpins, sizeof(double) * size * blockCount);
 	cudaMalloc((void**) &devSize, sizeof(int));
 	cudaMalloc((void**) &energyElems, sizeof(double) * size * size);
-	cudaMalloc((void**) &energy, sizeof(double));
-	cudaMalloc((void**) &devTemp, sizeof(double));
+	cudaMalloc((void**) &devTemp, sizeof(double) * blockCount);
 	cudaMalloc((void**) &delta, sizeof(double));
 
 	// Copy model data to GPU memory
@@ -43,19 +48,15 @@ CudaOperator::CudaOperator(Matrix matrix) {
 			cudaMemcpy(devMat, matrix.getArray(), sizeof(double) * size * size,
 					cudaMemcpyHostToDevice), "memcpy mat to host");
 	cudaMemcpy(devSize, &size, sizeof(int), cudaMemcpyHostToDevice);
-
-	cudaDeviceProp deviceProp;
-	checkError(cudaGetDeviceProperties(&deviceProp, 0), "getProp");
-	blockSize = deviceProp.maxThreadsPerBlock;
 }
 
-void CudaOperator::cudaLoadSpinset(Spinset spinset) {
+void CudaOperator::cudaLoadSpinset(Spinset spinset, int index) {
 	checkError(
-			cudaMemcpy(devSpins, spinset.getArray(), sizeof(double) * size,
-					cudaMemcpyHostToDevice), "memcpy spinset to device");
-	cudaMemcpy(devTemp, &(spinset.temp), sizeof(double),
+			cudaMemcpy(&devSpins[index * size], spinset.getArray(),
+					sizeof(double) * size, cudaMemcpyHostToDevice),
+			"memcpy spinset to device");
+	cudaMemcpy(&devTemp[index], &(spinset.temp), sizeof(double),
 			cudaMemcpyHostToDevice);
-	temp = spinset.temp;
 }
 
 void CudaOperator::cudaClear() {
@@ -65,13 +66,12 @@ void CudaOperator::cudaClear() {
 	cudaFree(meanFieldElems);
 	cudaFree(devSize);
 	cudaFree(devTemp);
-	cudaFree(energy);
 	cudaFree(energyElems);
 	cudaFree(delta);
 }
 
-__global__ void quickSumEnergy(double* devMat, double* devSpins, int* size,
-		double* output, int thCount, double* energyTempor) {
+__global__ void quickSumEnergy(double* devMat, double* devSpins, int index,
+		int* size, int thCount, double* energyTempor) {
 	int thrId = threadIdx.x;
 	int i;
 	int j;
@@ -80,7 +80,8 @@ __global__ void quickSumEnergy(double* devMat, double* devSpins, int* size,
 	while (wIndex < *size * *size) {
 		i = wIndex % *size;
 		j = (int) (wIndex / *size);
-		energyTempor[wIndex] = devSpins[i] * devSpins[j] * devMat[wIndex];
+		energyTempor[wIndex] = devSpins[i + index * *size]
+				* devSpins[j + index * *size] * devMat[wIndex];
 		wIndex = wIndex + thCount;
 	}
 	__syncthreads();
@@ -96,118 +97,113 @@ __global__ void quickSumEnergy(double* devMat, double* devSpins, int* size,
 		offset *= 2;
 		__syncthreads();
 	}
-
-	if (thrId == 0)
-		*output = energyTempor[0];
 }
 
-double CudaOperator::extractEnergy() {
-	quickSumEnergy<<<1, blockSize>>>(devMat, devSpins, devSize, energy,
+double CudaOperator::extractEnergy(int index) {
+	quickSumEnergy<<<1, blockSize>>>(devMat, devSpins, index, devSize,
 			blockSize, energyElems);
 	cudaDeviceSynchronize();
 	double out;
-	checkError(cudaMemcpy(&out, energy, sizeof(double), cudaMemcpyDeviceToHost),
-			"memcpy energy to host");
+	checkError(
+			cudaMemcpy(&out, energyElems, sizeof(double),
+					cudaMemcpyDeviceToHost), "memcpy energy to host");
 	return out;
 }
 
-Spinset CudaOperator::extractSpinset() {
+Spinset CudaOperator::extractSpinset(int index) {
 	double* hSpins = (double*) malloc(sizeof(double) * size);
 	checkError(
-			cudaMemcpy(hSpins, devSpins, sizeof(double) * size,
-					cudaMemcpyDeviceToHost), "memcpy spins to host");
+			cudaMemcpy(hSpins, &devSpins[index * blockCount],
+					sizeof(double) * size, cudaMemcpyDeviceToHost),
+			"memcpy spins to host");
 	Spinset outSpins(size);
 	for (int i = 0; i < size; i++)
 		outSpins.SetSpin(i, hSpins[i]);
 	return outSpins;
 }
 
-__global__ void cudaStabilize(double* mat, double* spins, int* size,
-		double* temp, int thCount, double* meanFieldElements, double* diff,
-		int* itC) {
-	// Invoke with div3(size)
+__global__ void cudaKernelPull(double* mat, double* spins, int* size,
+		double* temp, double tempStep, int thCount, double* meanFieldElements,
+		double* diff) {
+	int blockId = blockIdx.x;
 	int thrId = threadIdx.x;
-	if (thrId == 0)
-		*itC = 0;
 
-	while (true) {
-		__syncthreads();
-		//Iterate on all spins
-		if (thrId == 0) {
-			*diff = 0;
-			*itC = *itC + 1;
-		}
-
-		for (int spinId = 0; spinId < *size; ++spinId) {
+	bool flag;
+	while (temp[blockId] >= 0) {
+		//Stabilize
+		flag = true;
+		while (flag) {
 			__syncthreads();
-			int wIndex = thrId;
-			while (wIndex < *size) {
-				if (wIndex > spinId)
-					meanFieldElements[wIndex] = mat[spinId * *size + wIndex]
-							* spins[wIndex];
-				else
-					meanFieldElements[wIndex] = mat[wIndex * *size + spinId]
-							* spins[wIndex];
-				wIndex = wIndex + thCount;
-			}
-			__syncthreads();
+			//Iterate on all spins
+			if (thrId == 0)
+				*diff = 0;
 
-			// Parallelized mean-field computation
-			double force = 0;
-			int offset = 1;
-			while (offset < *size) {
-				wIndex = thrId;
-				while ((wIndex * 2 + 1) * offset < *size) {
-					meanFieldElements[wIndex * 2 * offset] +=
-							meanFieldElements[(wIndex * 2 + 1) * offset];
+			for (int spinId = 0; spinId < *size; ++spinId) {
+				__syncthreads();
+				int wIndex = thrId;
+				while (wIndex < *size) {
+					if (wIndex > spinId)
+						meanFieldElements[wIndex + blockId * *size] = mat[spinId
+								* *size + wIndex]
+								* spins[wIndex + blockId * *size];
+					else
+						meanFieldElements[wIndex + blockId * *size] = mat[wIndex
+								* *size + spinId]
+								* spins[wIndex + blockId * *size];
 					wIndex = wIndex + thCount;
 				}
-				offset *= 2;
+				__syncthreads();
+
+				// Parallelized mean-field computation
+				double force = 0;
+				int offset = 1;
+				while (offset < *size) {
+					wIndex = thrId;
+					while ((wIndex * 2 + 1) * offset < *size) {
+						meanFieldElements[wIndex * 2 * offset + blockId * *size] +=
+								meanFieldElements[(wIndex * 2 + 1) * offset
+										+ blockId * *size];
+						wIndex = wIndex + thCount;
+					}
+					offset *= 2;
+					__syncthreads();
+				}
+				if (thrId == 0)
+					force = meanFieldElements[blockId * *size];
+
+				// Mean-field calculation complete - write new spin and delta
+				if (thrId == 0) {
+					double old = spins[spinId + blockId * *size];
+					if (temp[blockId] > 0) {
+						spins[spinId + blockId * *size] = -1
+								* tanh(force / temp[blockId]);
+					} else if (force > 0)
+						spins[spinId + blockId * *size] = -1;
+					else if (force < 0)
+						spins[spinId + blockId * *size] = 1;
+					else
+						spins[spinId + blockId * *size] = 0;
+
+					// Refresh delta
+					if (*diff < fabs(old - spins[spinId + blockId * *size]))
+						*diff = fabs(old - spins[spinId + blockId * *size]);
+				}
 				__syncthreads();
 			}
-			if (thrId == 0)
-				force = meanFieldElements[0];
 
-			// Mean-field calculation complete - write new spin and delta
-			if (thrId == 0) {
-				double old = spins[spinId];
-				if (*temp > 0) {
-					spins[spinId] = -1 * tanh(force / *temp);
-				} else if (force > 0)
-					spins[spinId] = -1;
-				else if (force < 0)
-					spins[spinId] = 1;
-				else
-					spins[spinId] = 0;
-
-				// Refresh delta
-				if (*diff < fabs(old - spins[spinId]))
-					*diff = fabs(old - spins[spinId]);
-			}
 			__syncthreads();
+			if (*diff < 0.000001)
+				flag = false; // diff link is same for all threads; Abort stabilization if diff is appropriate
 		}
-
-		__syncthreads();
-		if (*diff < 0.000001)
-			return; // diff link is same for all threads; Terminate all if diff is appropriate
+		temp[blockId] = temp[blockId] - tempStep;
 	}
 }
 
 void CudaOperator::cudaPull(double pStep) {
-	cudaMemcpy(devTemp, &temp, sizeof(double), cudaMemcpyHostToDevice);
-	int* itC;
-	cudaMalloc((void**) &itC, sizeof(int));
-	cudaStabilize<<<1, blockSize>>>(devMat, devSpins, devSize, devTemp,
-			blockSize, meanFieldElems, delta, itC);
+	double* pullSt = NULL;
+	checkError(cudaMalloc((void**) &pullSt, sizeof(double)), "tMalloc");
+	cudaMemcpy(pullSt, &pStep, sizeof(double), cudaMemcpyHostToDevice);
+	cudaKernelPull<<<blockCount, blockSize>>>(devMat, devSpins, devSize,
+			devTemp, pStep, blockSize, meanFieldElems, delta);
 	cudaDeviceSynchronize();
-	do {
-		temp -= pStep;
-		checkError(
-				cudaMemcpy(devTemp, &temp, sizeof(double),
-						cudaMemcpyHostToDevice), "memcpy temperature");
-		cudaStabilize<<<1, blockSize>>>(devMat, devSpins, devSize, devTemp,
-				blockSize, meanFieldElems, delta, itC);
-		cudaDeviceSynchronize();
-	} while (temp > 0);
-
 }

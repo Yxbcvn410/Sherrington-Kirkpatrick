@@ -21,17 +21,16 @@ private:
 	double* meanFieldElems = NULL; //Temporary storage for force computation
 	double* delta = NULL;
 	double* energyElems = NULL; //Temporary storage for energy computation
-	double* energy = NULL;
 	//CPU variables
-	double temp;
 	int size;
 	int blockSize;
+	int blockCount;
 public:
-	CudaOperator(Matrix matrix);
-	void cudaLoadSpinset(Spinset spinset);
+	CudaOperator(Matrix matrix, int blockCount);
+	void cudaLoadSpinset(Spinset spinset, int index);
 	void cudaPull(double pStep);
-	double extractEnergy();
-	Spinset extractSpinset();
+	double extractEnergy(int index);
+	Spinset extractSpinset(int index);
 	void cudaClear();
 };
 

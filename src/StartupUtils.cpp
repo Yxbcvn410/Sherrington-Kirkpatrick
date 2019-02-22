@@ -15,7 +15,7 @@
 using namespace std;
 
 int StartupUtils::grabFromCLI(double& startRef, double& endRef, double& stepRef,
-		double& pStepRef, Matrix& modelRef, int& thrCountRef, bool& randRef,
+		double& pStepRef, Matrix& modelRef, int& blockCountRef, bool& randRef,
 		string& wDirRef) {
 	cout << "Do you want to init randomizer? (yes/no) ";
 	string resp = "";
@@ -42,8 +42,8 @@ int StartupUtils::grabFromCLI(double& startRef, double& endRef, double& stepRef,
 	cin >> stepRef;
 	cout << "When moving to zero step?" << endl;
 	cin >> pStepRef;
-	cout << "Thread count?" << endl;
-	cin >> thrCountRef;
+	cout << "CUDA block count?" << endl;
+	cin >> blockCountRef;
 	cout << "Model file? (-r to randomize)" << endl;
 	cin >> resp;
 	int ocode = 0;
@@ -68,7 +68,7 @@ int StartupUtils::grabFromCLI(double& startRef, double& endRef, double& stepRef,
 }
 
 int StartupUtils::grabFromFile(double& startRef, double& endRef,
-		double& stepRef, double& pStepRef, Matrix& modelRef, int& thrCountRef,
+		double& stepRef, double& pStepRef, Matrix& modelRef, int& blockCountRef,
 		bool& randRef, string& wDirRef, string confLocation) {
 	ifstream ifs;
 	ifs.open(confLocation);
@@ -97,8 +97,8 @@ int StartupUtils::grabFromFile(double& startRef, double& endRef,
 			cStep = true;
 		} else if (s == "&pstep" || s == "&ps") {
 			ifs >> pStepRef;
-		} else if (s == "&tc" || s == "&tcount") {
-			ifs >> thrCountRef;
+		} else if (s == "&bc" || s == "&bcount") {
+			ifs >> blockCountRef;
 		} else if (s == "&msize" || s == "&ms") {
 			int size;
 			ifs >> size;

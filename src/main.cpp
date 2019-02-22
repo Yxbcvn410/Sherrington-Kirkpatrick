@@ -1,5 +1,5 @@
-#define VERSION 3.4
-#define BUILD 57
+#define VERSION 4.1
+#define BUILD 64
 
 #include <stdio.h>
 #include <iostream>
@@ -25,58 +25,6 @@ int minCount;
 string minSpins;
 mutex mcMutex;
 mutex mesMutex;
-
-void analyzeTempInterval(const Matrix &matrix, double start, double end,
-		double step, double pullStep, const string &dir, const string &fname,
-		int seed, double &progress) {
-	Spinset spinset(matrix.getSize());
-	spinset.seed(seed);
-	ofstream ofs;
-	progress = 0;
-
-	//Init CUDA device
-	CudaOperator op(matrix);
-
-	int findex = FreeFileIndex(dir, fname, ".txt", true);
-	ofs.open(ComposeFilename(dir, fname, findex, ".txt"), ios::out);
-	ofs << "t e" << endl;
-	ofs.flush();
-	Plotter::AddDatafile(ComposeFilename(dir, fname, findex, ".txt"),
-			Plotter::POINTS);
-
-	double currentTemp = start;
-	minCount = 1;
-	while (currentTemp < end) {
-		spinset.temp = currentTemp;
-		progress = (currentTemp - start) * (currentTemp + start)
-				/ ((end - start) * (end + start));
-		spinset.Randomize(false);
-
-		op.cudaLoadSpinset(spinset);
-		op.cudaPull(pullStep);
-		double spinsetEnergy = op.extractEnergy();
-		ofs << currentTemp << " \t" << spinsetEnergy << endl;
-		if (spinsetEnergy < minEnergy) {
-			mesMutex.lock();
-			if (spinsetEnergy < minEnergy) {
-				minEnergy = spinsetEnergy;
-				minSpins = op.extractSpinset().getSpins();
-				minCount = 1;
-			}
-			mesMutex.unlock();
-		} else if (spinsetEnergy == minEnergy) {
-			mcMutex.lock();
-			if (spinsetEnergy == minEnergy)
-				minCount++;
-			mcMutex.unlock();
-		}
-		currentTemp += step;
-
-	}
-	ofs.flush();
-	ofs.close();
-	progress = -1;
-}
 
 string composeProgressbar(double state, int pbLen) {
 	ostringstream os;
@@ -125,7 +73,7 @@ int main(int argc, char* argv[]) {
 	double upTemp;
 	double step = 0.001;
 	double pullStep = 0.1;
-	int thrC;
+	int blockCount;
 	int nSave;
 	bool doRand = true;
 	ofstream logWriter;
@@ -138,13 +86,14 @@ int main(int argc, char* argv[]) {
 		logWriter << "Parsing init config..." << endl;
 		string wd = StartupUtils::getCurrentWorkingDir();
 		nSave = StartupUtils::grabFromFile(ref(dTemp), ref(upTemp), ref(step),
-				ref(pullStep), ref(matrix), ref(thrC), ref(doRand), ref(dir),
-				wd + "/config");
+				ref(pullStep), ref(matrix), ref(blockCount), ref(doRand),
+				ref(dir), wd + "/config");
 
 	} else {
 		//Acquire init config from cin
 		nSave = StartupUtils::grabFromCLI(ref(dTemp), ref(upTemp), ref(step),
-				ref(pullStep), ref(matrix), ref(thrC), ref(doRand), ref(dir));
+				ref(pullStep), ref(matrix), ref(blockCount), ref(doRand),
+				ref(dir));
 	}
 	logWriter.open(dir + "/l.log", ios::out | ios::app);
 
@@ -176,62 +125,63 @@ int main(int argc, char* argv[]) {
 		srand(1);
 		logWriter << "Random de-initialized." << endl;
 	}
-	//Init plot
+	//Init plot, clock, CUDA
 	Plotter::InitScriptfile(
 			ComposeFilename(dir, "img", FreeFileIndex(dir, "img", ".png", true),
 					".png"), "");
-
-	//Launch threads
-	double* statuses = new double[thrC];
-	for (int i = 0; i < thrC; ++i) {
-		const int j = i;
-		statuses[j] = 0;
-		thread ht(analyzeTempInterval, matrix, dTemp + step * j, upTemp,
-				(step * thrC), pullStep, dir, "log", rand(), ref(statuses[j]));
-		ht.detach();
-		logWriter << "Launched thread #" << i + 1 << endl;
-	}
-
-	//Launch clock
 	time_t start = time(NULL);
+	CudaOperator op(matrix, blockCount);
+	int dataIndex = FreeFileIndex(dir, "data", ".txt", true);
+	ofstream dataStream(ComposeFilename(dir, "data", dataIndex, ".txt"));
+	dataStream << "t e" << endl;
+	Plotter::AddDatafile(ComposeFilename(dir, "data", dataIndex, ".txt"),
+			Plotter::POINTS);
 
-	//Beautiful output
-	bool flag = true;
-	int count = 1;
-	double progr;
-	while (flag) {
-		this_thread::sleep_for(std::chrono::milliseconds(1000));
-		system("clear");
-		flag = false;
-		progr = 0;
-		for (int i = 0; i < thrC; ++i) {
-			if (statuses[i] == -1)
-				progr += 1;
-			else
-				progr += statuses[i];
-			if (statuses[i] != -1)
-				flag = true;
-			cout << "Thread #" << i << ":\t"
-					<< composeProgressbar(statuses[i], 60) << endl;
+	Spinset spins(matrix.getSize());
+	spins.temp = dTemp;
+	while (spins.temp < upTemp) {
+		for (int i = 0; i < blockCount; i++) {
+			spins.Randomize(false);
+			op.cudaLoadSpinset(spins, i);
+			spins.temp += step;
 		}
-		progr = progr / thrC;
-		cout << "Time elapsed: " << getTimeString(difftime(time(NULL), start))
-				<< "\n";
+		op.cudaPull(pullStep);
+		spins.temp -= step * blockCount;
+		for (int i = 0; i < blockCount; i++) {
+			if(spins.temp >= upTemp) continue;
+			double nrg = op.extractEnergy(i);
+			if (nrg < minEnergy) {
+				minEnergy = nrg;
+				minCount = 1;
+				minSpins = op.extractSpinset(i).getSpins();
+			} else if (nrg == minEnergy)
+				minCount++;
+			dataStream << spins.temp << " " << nrg << "\n";
+			spins.temp += step;
+		}
+		system("clear");
+		system("tput cols > /tmp/lololol.lol");
+		int termsize = 75;
+		try {
+			ostringstream iss;
+			iss << ifstream("/tmp/lololol.lol").rdbuf();
+			termsize = stoi(iss.str());
+		} catch (exception & e) {
+			termsize = 75;
+		}
+		double progress = (spins.temp * spins.temp - dTemp * dTemp)
+				/ (upTemp * upTemp - dTemp * dTemp);
+		cout << "Progress: " << composeProgressbar(progress, termsize - 15)
+				<< endl;
+		cout << "Time elapsed: " << getTimeString(time(NULL) - start) << endl;
 		cout << "ETA: "
 				<< getTimeString(
-						((1 - progr) / progr) * difftime(time(NULL), start))
+						(time(NULL) - start) * (1 - progress) / progress)
 				<< endl;
-		count++;
-		if (count > 60) {
-			count = 1;
-			logWriter << "[" << getTimeString(difftime(time(NULL), start))
-					<< "]:\t Progress " << composeProgressbar(progr, 60)
-					<< "\n";
-			logWriter << "ETA: "
-					<< getTimeString(
-							((1 - progr) / progr) * difftime(time(NULL), start))
-					<< endl;
-		}
+		logWriter << "[" << getTimeString(time(NULL) - start)
+				<< "] Analyzing temperature " << spins.temp
+				<< ", upper limit - " << upTemp << endl;
+		dataStream.flush();
 	}
 
 	logWriter << "Calculation complete in "
@@ -244,7 +194,7 @@ int main(int argc, char* argv[]) {
 			<< ", " << (int) ((upTemp - dTemp) / step) << " points in total"
 			<< endl;
 	spinWriter << "Spin assessment:" << endl << minSpins << endl;
-	spinWriter << "Computed using " << thrC << " threads in "
+	spinWriter << "Computed using " << blockCount << " threads in "
 			<< getTimeString(difftime(time(NULL), start)) << endl;
 	spinWriter.flush();
 	spinWriter.close();
