@@ -82,11 +82,11 @@ __global__ void quickSumEnergy(double* devMat, double* devSpins, int index,
 		j = (int) (wIndex / *size);
 		energyTempor[wIndex] = devSpins[i + index * *size]
 				* devSpins[j + index * *size] * devMat[wIndex];
-		wIndex = wIndex + thCount;
+		wIndex = wIndex + blockDim.x;
 	}
 	__syncthreads();
 
-	int offset = 1;
+	long long offset = 1;
 	while (offset < *size * *size) {
 		wIndex = thrId;
 		while ((wIndex * 2 + 1) * offset < *size * *size) {
@@ -162,7 +162,7 @@ __global__ void cudaKernelPull(double* mat, double* spins, int* size,
 
 				// Parallelized mean-field computation
 				double meanField = 0;
-				int offset = 1;
+				long long offset = 1;
 				while (offset < *size) {
 					wIndex = thrId;
 					while ((wIndex * 2 + 1) * offset < *size) {
@@ -191,8 +191,10 @@ __global__ void cudaKernelPull(double* mat, double* spins, int* size,
 						spins[spinId + blockId * *size] = 0;
 
 					// Refresh delta
-					if (diff[blockId] < fabs(old - spins[spinId + blockId * *size]))
-						diff[blockId] = fabs(old - spins[spinId + blockId * *size]);
+					if (diff[blockId]
+							< fabs(old - spins[spinId + blockId * *size]))
+						diff[blockId] = fabs(
+								old - spins[spinId + blockId * *size]);
 				}
 				__syncthreads();
 			}

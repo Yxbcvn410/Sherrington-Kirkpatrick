@@ -1,5 +1,5 @@
 #define VERSION 4.2
-#define BUILD 67
+#define BUILD 68
 
 #include <stdio.h>
 #include <iostream>
@@ -33,9 +33,7 @@ string composeProgressbar(double state, int pbLen) {
 	ostringstream os;
 	if (state == -1)
 		os << "Dead.";
-	else if (state == 0) {
-		os << "Idle.";
-	} else {
+	else {
 		os << "[";
 		for (int i = 0; i < pbLen; i++)
 			if (i / (double) pbLen < state)
