@@ -1,5 +1,5 @@
 #define VERSION 4.2
-#define BUILD 66
+#define BUILD 67
 
 #include <stdio.h>
 #include <iostream>
@@ -67,10 +67,10 @@ string getTimeString(double time) {
 
 void CLIControl() {
 	while (progress != -1) {
-		system("clear");
-		system("tput cols > /tmp/lololol.lol");
 		int termsize = 75;
 		try {
+			system("clear");
+			system("tput cols > /tmp/lololol.lol");
 			ostringstream iss;
 			iss << ifstream("/tmp/lololol.lol").rdbuf();
 			termsize = stoi(iss.str());
@@ -187,7 +187,7 @@ int main(int argc, char* argv[]) {
 				minSpins = op.extractSpinset(i).getSpins();
 			} else if (nrg == minEnergy)
 				minCount++;
-			dataStream << spins.temp << " " << nrg << "\n";
+			dataStream << spins.temp << "\t" << nrg << "\n";
 			spins.temp += step;
 		}
 		progress = (spins.temp * spins.temp - dTemp * dTemp)

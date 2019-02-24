@@ -41,7 +41,7 @@ CudaOperator::CudaOperator(Matrix matrix, int blockCnt) {
 	cudaMalloc((void**) &devSize, sizeof(int));
 	cudaMalloc((void**) &energyElems, sizeof(double) * size * size);
 	cudaMalloc((void**) &devTemp, sizeof(double) * blockCount);
-	cudaMalloc((void**) &delta, sizeof(double));
+	cudaMalloc((void**) &delta, sizeof(double) * blockCnt);
 
 	// Copy model data to GPU memory
 	checkError(
@@ -103,6 +103,8 @@ double CudaOperator::extractEnergy(int index) {
 	quickSumEnergy<<<1, blockSize>>>(devMat, devSpins, index, devSize,
 			blockSize, energyElems);
 	cudaDeviceSynchronize();
+	cudaError_t err = cudaGetLastError();
+	checkError(err, "Kernel at extractEnergy");
 	double out;
 	checkError(
 			cudaMemcpy(&out, energyElems, sizeof(double),
@@ -113,9 +115,8 @@ double CudaOperator::extractEnergy(int index) {
 Spinset CudaOperator::extractSpinset(int index) {
 	double* hSpins = (double*) malloc(sizeof(double) * size);
 	checkError(
-			cudaMemcpy(hSpins, &devSpins[index * blockCount],
-					sizeof(double) * size, cudaMemcpyDeviceToHost),
-			"memcpy spins to host");
+			cudaMemcpy(hSpins, &devSpins[index * size], sizeof(double) * size,
+					cudaMemcpyDeviceToHost), "memcpy spins to host");
 	Spinset outSpins(size);
 	for (int i = 0; i < size; i++)
 		outSpins.SetSpin(i, hSpins[i]);
@@ -129,16 +130,19 @@ __global__ void cudaKernelPull(double* mat, double* spins, int* size,
 	int thrId = threadIdx.x;
 
 	bool flag;
-	while (temp[blockId] > 0) {
+	bool firstrun = true;
+	while (temp[blockId] >= 0 || firstrun) {
+		firstrun = false;
 		//Lessen temperature
-		temp[blockId] = temp[blockId] - tempStep;
+		if (thrId == 0)
+			temp[blockId] = temp[blockId] - tempStep;
 		//Stabilize
 		flag = true;
 		while (flag) {
 			__syncthreads();
 			//Iterate on all spins
 			if (thrId == 0)
-				*diff = 0;
+				diff[blockId] = 0;
 
 			for (int spinId = 0; spinId < *size; ++spinId) {
 				__syncthreads();
@@ -157,7 +161,7 @@ __global__ void cudaKernelPull(double* mat, double* spins, int* size,
 				__syncthreads();
 
 				// Parallelized mean-field computation
-				double force = 0;
+				double meanField = 0;
 				int offset = 1;
 				while (offset < *size) {
 					wIndex = thrId;
@@ -171,40 +175,39 @@ __global__ void cudaKernelPull(double* mat, double* spins, int* size,
 					__syncthreads();
 				}
 				if (thrId == 0)
-					force = meanFieldElements[blockId * *size];
+					meanField = meanFieldElements[blockId * *size];
 
 				// Mean-field calculation complete - write new spin and delta
 				if (thrId == 0) {
 					double old = spins[spinId + blockId * *size];
 					if (temp[blockId] > 0) {
 						spins[spinId + blockId * *size] = -1
-								* tanh(force / temp[blockId]);
-					} else if (force > 0)
+								* tanh(meanField / temp[blockId]);
+					} else if (meanField > 0)
 						spins[spinId + blockId * *size] = -1;
-					else if (force < 0)
+					else if (meanField < 0)
 						spins[spinId + blockId * *size] = 1;
 					else
 						spins[spinId + blockId * *size] = 0;
 
 					// Refresh delta
-					if (*diff < fabs(old - spins[spinId + blockId * *size]))
-						*diff = fabs(old - spins[spinId + blockId * *size]);
+					if (diff[blockId] < fabs(old - spins[spinId + blockId * *size]))
+						diff[blockId] = fabs(old - spins[spinId + blockId * *size]);
 				}
 				__syncthreads();
 			}
 
 			__syncthreads();
-			if (*diff < 0.000001)
+			if (diff[blockId] < 0.000001)
 				flag = false; // diff link is same for all threads; Abort stabilization if diff is appropriate
 		}
 	}
 }
 
 void CudaOperator::cudaPull(double pStep) {
-	double* pullSt = NULL;
-	checkError(cudaMalloc((void**) &pullSt, sizeof(double)), "tMalloc");
-	cudaMemcpy(pullSt, &pStep, sizeof(double), cudaMemcpyHostToDevice);
 	cudaKernelPull<<<blockCount, blockSize>>>(devMat, devSpins, devSize,
 			devTemp, pStep, blockSize, meanFieldElems, delta);
 	cudaDeviceSynchronize();
+	cudaError_t err = cudaGetLastError();
+	checkError(err, "Kernel at cudaPull");
 }
