@@ -70,13 +70,12 @@ void CudaOperator::cudaClear() {
 	cudaFree(delta);
 }
 
-__global__ void quickSumEnergy(double* devMat, double* devSpins, int index,
-		int* size, int thCount, double* energyTempor) {
-	int thrId = threadIdx.x;
+__global__ void allocHamiltonian(double* devMat, double* devSpins, int index,
+		int* size, double* energyTempor) {
 	int i;
 	int j;
 
-	int wIndex = thrId;
+	int wIndex = threadIdx.x;
 	while (wIndex < *size * *size) {
 		i = wIndex % *size;
 		j = (int) (wIndex / *size);
@@ -84,15 +83,17 @@ __global__ void quickSumEnergy(double* devMat, double* devSpins, int index,
 				* devSpins[j + index * *size] * devMat[wIndex];
 		wIndex = wIndex + blockDim.x;
 	}
-	__syncthreads();
+}
 
+__global__ void quickSum(double* energyTempor, int* size) {
 	long long offset = 1;
+	int wIndex;
 	while (offset < *size * *size) {
-		wIndex = thrId;
+		wIndex = threadIdx.x;
 		while ((wIndex * 2 + 1) * offset < *size * *size) {
 			energyTempor[wIndex * 2 * offset] += energyTempor[(wIndex * 2 + 1)
 					* offset];
-			wIndex = wIndex + thCount;
+			wIndex = wIndex + blockDim.x;
 		}
 		offset *= 2;
 		__syncthreads();
@@ -100,8 +101,9 @@ __global__ void quickSumEnergy(double* devMat, double* devSpins, int index,
 }
 
 double CudaOperator::extractEnergy(int index) {
-	quickSumEnergy<<<1, blockSize>>>(devMat, devSpins, index, devSize,
-			blockSize, energyElems);
+	allocHamiltonian<<<1, blockSize>>>(devMat, devSpins, index, devSize,
+			energyElems);
+	quickSum<<<1, blockSize>>>(energyElems, devSize);
 	cudaDeviceSynchronize();
 	cudaError_t err = cudaGetLastError();
 	checkError(err, "Kernel at extractEnergy");
@@ -124,7 +126,7 @@ Spinset CudaOperator::extractSpinset(int index) {
 }
 
 __global__ void cudaKernelPull(double* mat, double* spins, int* size,
-		double* temp, double tempStep, int thCount, double* meanFieldElements,
+		double* temp, double tempStep, double* meanFieldElements,
 		double* diff) {
 	int blockId = blockIdx.x;
 	int thrId = threadIdx.x;
@@ -156,7 +158,7 @@ __global__ void cudaKernelPull(double* mat, double* spins, int* size,
 						meanFieldElements[wIndex + blockId * *size] = mat[wIndex
 								* *size + spinId]
 								* spins[wIndex + blockId * *size];
-					wIndex = wIndex + thCount;
+					wIndex = wIndex + blockDim.x;
 				}
 				__syncthreads();
 
@@ -169,7 +171,7 @@ __global__ void cudaKernelPull(double* mat, double* spins, int* size,
 						meanFieldElements[wIndex * 2 * offset + blockId * *size] +=
 								meanFieldElements[(wIndex * 2 + 1) * offset
 										+ blockId * *size];
-						wIndex = wIndex + thCount;
+						wIndex = wIndex + blockDim.x;
 					}
 					offset *= 2;
 					__syncthreads();
@@ -208,7 +210,7 @@ __global__ void cudaKernelPull(double* mat, double* spins, int* size,
 
 void CudaOperator::cudaPull(double pStep) {
 	cudaKernelPull<<<blockCount, blockSize>>>(devMat, devSpins, devSize,
-			devTemp, pStep, blockSize, meanFieldElems, delta);
+			devTemp, pStep, meanFieldElems, delta);
 	cudaDeviceSynchronize();
 	cudaError_t err = cudaGetLastError();
 	checkError(err, "Kernel at cudaPull");

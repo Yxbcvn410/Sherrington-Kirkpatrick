@@ -9,7 +9,6 @@
 #define SPINSET_H_
 #include <iostream>
 #include <stdio.h>
-#include <random>
 #include "Matrix.h"
 using namespace std;
 
@@ -17,11 +16,9 @@ class Spinset {
 private:
 	int size;
 	double* spins;
-	mt19937 random;
 public:
 	double temp;
 	Spinset(int size);
-	void seed(int seed);
 	void Randomize(bool bin);
 	void SetSpin(int index, double value);
 	const string getSpins();

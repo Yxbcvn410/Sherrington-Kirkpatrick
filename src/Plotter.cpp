@@ -11,12 +11,12 @@
 using namespace std;
 using namespace Plotter;
 
-void Plotter::InitScriptfile(string targetFile, string title) {
+void Plotter::InitScriptfile(string scriptFile, string outputFile, string title) {
 	ofstream ofs;
-	ofs.open("/tmp/gplot.scr", ios::out);
+	ofs.open(scriptFile, ios::out);
 	ofs << "set autoscale" << endl;
 	ofs << "set terminal png size 3200,2400" << endl;
-	ofs << "set output '" << targetFile << "'" << endl;
+	ofs << "set output '" << outputFile << "'" << endl;
 	ofs << "set title \"" << title << "\"" << endl;
 	ofs << "set grid x" << endl;
 	ofs << "set grid y" << endl;
@@ -46,11 +46,11 @@ int countColumns(string file) {
 
 mutex aplot_lock;
 
-void Plotter::AddDatafile(string dataFile, Plotter::PlotType type) {
+void Plotter::AddDatafile(string scriptFile, string dataFile, Plotter::PlotType type) {
 	aplot_lock.lock();
 	int c = countColumns(dataFile);
 	ofstream ofs;
-	ofs.open("/tmp/gplot.scr", ios::out | ios::app);
+	ofs.open(scriptFile, ios::out | ios::app);
 	for (int i = 2; i <= c; ++i) {
 		ofs << "\"" << dataFile << "\" using 1:" << i << " title '' with ";
  		switch (type) {
@@ -70,10 +70,6 @@ void Plotter::AddDatafile(string dataFile, Plotter::PlotType type) {
 	aplot_lock.unlock();
 }
 
-void Plotter::doPlot(){
-	system("gnuplot -c /tmp/gplot.scr");
-}
-
-void Plotter::clearScriptfile(){
-	system("rm -f /tmp/gplot.scr");
+void Plotter::doPlot(string scriptFile){
+	system(("gnuplot -c " + scriptFile).c_str());
 }

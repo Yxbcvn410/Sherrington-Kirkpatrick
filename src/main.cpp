@@ -1,5 +1,5 @@
-#define VERSION 4.2
-#define BUILD 68
+#define VERSION 4.4
+#define BUILD 72
 
 #include <stdio.h>
 #include <iostream>
@@ -103,12 +103,14 @@ int main(int argc, char* argv[]) {
 	ofstream logWriter;
 	if (argc >= 2) {
 		//Acquire init config from config
-		matrix = Matrix(stoi(argv[1]));
+		try {
+			matrix = Matrix(stoi(argv[1]));
+		} catch (exception & e) {
+		}
 		if (argc >= 3) {
 			upTemp = stod(argv[2]);
 		}
-		logWriter << "Parsing init config..." << endl;
-		string wd = StartupUtils::getCurrentWorkingDir();
+		string wd = FilesystemProvider::getCurrentWorkingDirectory();
 		nSave = StartupUtils::grabFromFile(ref(dTemp), ref(upTemp), ref(step),
 				ref(pullStep), ref(matrix), ref(blockCount), ref(doRand),
 				ref(dir), wd + "/config");
@@ -118,6 +120,7 @@ int main(int argc, char* argv[]) {
 				ref(pullStep), ref(matrix), ref(blockCount), ref(doRand),
 				ref(dir));
 	}
+
 	logWriter.open(dir + "/log.txt", ios::out | ios::app);
 
 	if (nSave == -1) { // If an error occured while parsing
@@ -128,8 +131,8 @@ int main(int argc, char* argv[]) {
 	}
 
 	logWriter << "Starting with ";
-
-	srand(time(0));
+	if (doRand)
+		srand(time(NULL));
 
 	if (nSave == 1) { //Export matrix if needed
 		matrix.Randomize();
@@ -141,19 +144,14 @@ int main(int argc, char* argv[]) {
 	} else
 		logWriter << "existing matrix, size " << matrix.getSize() << endl;
 
-	if (!doRand) { // Init random if needed
-		srand(1);
-		logWriter << "Random de-initialized." << endl;
-	}
 	// Init plot, clock, CUDA, CLI
 	FilesystemProvider::makeFile(ComposeFilename(dir, "img", ".png"));
-	Plotter::InitScriptfile(ComposeFilename(dir, "img", ".png"),
-			"Зависимость энергии от температуры");
+	Plotter::InitScriptfile(dir + "/plot.txt", ComposeFilename(dir, "img", ".png"));
 	start = time(NULL);
 	CudaOperator op(matrix, blockCount);
 	ofstream dataStream(ComposeFilename(dir, "data", ".txt"));
 	dataStream << "t e" << endl;
-	Plotter::AddDatafile(ComposeFilename(dir, "data", ".txt"), Plotter::POINTS);
+	Plotter::AddDatafile(dir + "/plot.txt", ComposeFilename(dir, "data", ".txt"), Plotter::POINTS);
 	thread th(CLIControl);
 	th.detach();
 
@@ -196,6 +194,7 @@ int main(int argc, char* argv[]) {
 		dataStream.flush();
 	}
 
+	// Disable output && write data to log
 	progress = -1;
 	logWriter << "Calculation complete in "
 			<< getTimeString(difftime(time(NULL), start)) << endl;
@@ -212,6 +211,5 @@ int main(int argc, char* argv[]) {
 			<< getTimeString(difftime(time(NULL), start)) << endl;
 	spinWriter.flush();
 	spinWriter.close();
-	Plotter::doPlot();
-	Plotter::clearScriptfile();
+	Plotter::doPlot(dir + "/plot.txt");
 }

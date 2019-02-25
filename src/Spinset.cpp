@@ -20,22 +20,15 @@ Spinset::Spinset(int size) {
 }
 
 void Spinset::Randomize(bool bin) {
-	double f;
 	for (int i = 0; i < size; ++i) {
-		f = (random() / (double) RAND_MAX) / (double) 2;
-		f = f * 2 - 1;
 		if (bin)
-			if (f > 0)
+			if (rand() > 0.5)
 				spins[i] = 1;
 			else
 				spins[i] = -1;
 		else
-			spins[i] = f;
+			spins[i] = (rand() / (double) RAND_MAX) * 2 - 1;
 	}
-}
-
-void Spinset::seed(int seed) {
-	random.seed(seed);
 }
 
 void Spinset::SetSpin(int index, double value) {

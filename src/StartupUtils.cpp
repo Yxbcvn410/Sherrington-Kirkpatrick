@@ -9,10 +9,11 @@
 #include <sstream>
 #include <stdio.h>
 #include <fstream>
-#include <unistd.h>
 #include "StartupUtils.h"
 #include "FilesystemProvider.h"
+
 using namespace std;
+using namespace FilesystemProvider;
 
 int StartupUtils::grabFromCLI(double& startRef, double& endRef, double& stepRef,
 		double& pStepRef, Matrix& modelRef, int& blockCountRef, bool& randRef,
@@ -28,7 +29,7 @@ int StartupUtils::grabFromCLI(double& startRef, double& endRef, double& stepRef,
 	} else
 		cout << "Randomizer was not initialized" << "\n";
 	cout << "Working dir? (-a to auto-create in current working directory)\n"
-			<< getCurrentWorkingDir() << endl;
+			<< getCurrentWorkingDirectory() << endl;
 	cin >> wDirRef;
 	if (wDirRef == "-a" || wDirRef == "-A") {
 		mkDir = true;
@@ -58,11 +59,11 @@ int StartupUtils::grabFromCLI(double& startRef, double& endRef, double& stepRef,
 	if (mkDir) {
 		ostringstream oss;
 		oss << "calc" << modelRef.getSize() << "_";
-		int dirIndex = FilesystemProvider::FreeFileIndex(getCurrentWorkingDir(),
-				oss.str(), "", false);
+		int dirIndex = FreeFileIndex(getCurrentWorkingDirectory(), oss.str(),
+				"", false);
 		oss << dirIndex;
-		wDirRef = getCurrentWorkingDir() + "/" + oss.str();
-		FilesystemProvider::makeDirectory(wDirRef, "");
+		wDirRef = getCurrentWorkingDirectory() + "/" + oss.str();
+		makeDirectory(wDirRef, "");
 	}
 	return ocode;
 }
@@ -112,7 +113,8 @@ int StartupUtils::grabFromFile(double& startRef, double& endRef,
 				wDirRef = "";
 			} else
 				mkDir = false;
-		} else if (s == "&mloc" || s == "&ml") {
+		} else if (s == "&mloc" || s == "&ml" || s == "&ml_b"
+				|| s == "&mloc_b") {
 			needSave = 0;
 			string loc;
 			ifs >> loc;
@@ -124,7 +126,10 @@ int StartupUtils::grabFromFile(double& startRef, double& endRef,
 						<< endl;
 				return -1;
 			}
-			modelRef = Matrix(ifstream(loc));
+			if (s == "&ml_b" || s == "&mloc_b")
+				modelRef.buildMat(ifstream(loc));
+			else
+				modelRef = Matrix(ifstream(loc));
 		} else if (s == "&ird" || s == "&irand" || s == "&initrd"
 				|| s == "&initrand") {
 			string buf;
@@ -153,21 +158,14 @@ int StartupUtils::grabFromFile(double& startRef, double& endRef,
 	if (mkDir) {
 		ostringstream oss;
 		oss << "calc" << modelRef.getSize() << "_";
-		int dirIndex = FilesystemProvider::FreeFileIndex(getCurrentWorkingDir(),
-				oss.str(), "", false);
+		int dirIndex = FreeFileIndex(getCurrentWorkingDirectory(), oss.str(),
+				"", false);
 		oss << dirIndex;
-		wDirRef = getCurrentWorkingDir() + "/" + oss.str();
-		FilesystemProvider::makeDirectory(wDirRef, "");
+		wDirRef = getCurrentWorkingDirectory() + "/" + oss.str();
+		makeDirectory(wDirRef, "");
 	}
 	if (cStep)
 		stepRef = (endRef - startRef) / stepRef;
 	cout << "Config parsing complete, success." << endl;
 	return needSave;
-}
-
-string StartupUtils::getCurrentWorkingDir() {
-	char buff[FILENAME_MAX];
-	getcwd(buff, FILENAME_MAX);
-	std::string current_working_dir(buff);
-	return current_working_dir;
 }

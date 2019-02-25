@@ -10,6 +10,7 @@
 #include <sstream>
 #include <stdio.h>
 #include <fstream>
+#include <unistd.h>
 #include <mutex>
 using namespace std;
 
@@ -30,6 +31,13 @@ string FilesystemProvider::ComposeFilename(string ParentName, string key,
 	ostringstream out;
 	out << ParentName << "/" << key << extention;
 	return out.str();
+}
+
+string FilesystemProvider::getCurrentWorkingDirectory() {
+	char buff[FILENAME_MAX];
+	getcwd(buff, FILENAME_MAX);
+	std::string current_working_dir(buff);
+	return current_working_dir;
 }
 
 mutex fs_lock;

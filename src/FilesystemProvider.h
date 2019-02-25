@@ -17,6 +17,7 @@ int FreeFileIndex(string parentName, string key, string extention,
 string ComposeFilename(string parentName, string key, string extention);
 string ComposeFilename(string parentName, string key, int index,
 		string extention);
+string getCurrentWorkingDirectory();
 void makeDirectory(string pathTo, string name);
 void makeFile(string filename);
 }

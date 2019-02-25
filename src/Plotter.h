@@ -15,10 +15,9 @@ namespace Plotter {
 enum PlotType {
 	LINES, POINTS
 };
-void InitScriptfile(string targetFile, string title);
-void AddDatafile(string dataFile, PlotType type);
-void doPlot();
-void clearScriptfile();
+void InitScriptfile(string scriptFile, string outputFile, string title = "");
+void AddDatafile(string scriptFile, string dataFile, PlotType type);
+void doPlot(string scriptFile);
 }
 
 #endif /* PLOTTER_H_ */

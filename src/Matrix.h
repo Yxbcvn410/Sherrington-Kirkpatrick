@@ -15,13 +15,16 @@ class Matrix {
 private:
 	int size;
 	double* matrix;
+	double sum;
 public:
 	Matrix(int size);
 	Matrix(ifstream fs);
+	void buildMat(ifstream ifs);
 	void Randomize();
 	string getMatrix();
-	 int getSize() const;
-	const double* getArray();
+	int getSize();
+	double* getArray();
+	double getSum();
 };
 
 #endif /* MATRIX_H_ */
