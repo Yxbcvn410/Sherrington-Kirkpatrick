@@ -46,7 +46,7 @@ int countColumns(string file) {
 
 mutex aplot_lock;
 
-void Plotter::AddDatafile(string scriptFile, string dataFile, Plotter::PlotType type) {
+void Plotter::AddDatafile(string scriptFile, string dataFile, Plotter::PlotType type, string color) {
 	aplot_lock.lock();
 	int c = countColumns(dataFile);
 	ofstream ofs;
@@ -58,7 +58,7 @@ void Plotter::AddDatafile(string scriptFile, string dataFile, Plotter::PlotType 
 				ofs << "lines";
 				break;
 			case POINTS:
-				ofs << "points pointtype 13 ps 0.7 lt rgb \"#0080FF\" ";
+				ofs << "points pointtype 13 ps 0.7 lt rgb \"#" << color << "\" ";
 				break;
 			default:
 				break;

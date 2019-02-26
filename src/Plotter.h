@@ -16,7 +16,7 @@ enum PlotType {
 	LINES, POINTS
 };
 void InitScriptfile(string scriptFile, string outputFile, string title = "");
-void AddDatafile(string scriptFile, string dataFile, PlotType type);
+void AddDatafile(string scriptFile, string dataFile, PlotType type, string color = "0000FF");
 void doPlot(string scriptFile);
 }
 

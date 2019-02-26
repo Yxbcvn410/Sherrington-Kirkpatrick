@@ -1,5 +1,5 @@
 #define VERSION 4.4
-#define BUILD 72
+#define BUILD 75
 
 #include <stdio.h>
 #include <iostream>
@@ -84,6 +84,7 @@ void CLIControl() {
 				<< endl;
 		this_thread::sleep_for(std::chrono::seconds(1));
 	}
+	cout << "Computation complete in " << getTimeString(time(NULL) - start) << endl;
 }
 
 int main(int argc, char* argv[]) {
@@ -145,13 +146,21 @@ int main(int argc, char* argv[]) {
 		logWriter << "existing matrix, size " << matrix.getSize() << endl;
 
 	// Init plot, clock, CUDA, CLI
-	FilesystemProvider::makeFile(ComposeFilename(dir, "img", ".png"));
-	Plotter::InitScriptfile(dir + "/plot.txt", ComposeFilename(dir, "img", ".png"));
+	FilesystemProvider::makeFile(
+			ComposeFilename(dir, "img", ".png"));
+	Plotter::InitScriptfile(dir + "/plot.txt",
+			ComposeFilename(dir, "img", ".png"), "Hamiltonian");
+	ofstream hamiltonianWriter(
+			ComposeFilename(dir, "data_hamiltonian", ".txt"));
+	hamiltonianWriter << "t e" << endl;
+	Plotter::AddDatafile(dir + "/plot.txt",
+			ComposeFilename(dir, "data_hamiltonian", ".txt"), Plotter::POINTS);
+
+	ofstream maxcutWriter(ComposeFilename(dir, "data_maxcut", ".txt"));
+	maxcutWriter << " " << endl;
+
+	CudaOperator op = CudaOperator(matrix, blockCount);
 	start = time(NULL);
-	CudaOperator op(matrix, blockCount);
-	ofstream dataStream(ComposeFilename(dir, "data", ".txt"));
-	dataStream << "t e" << endl;
-	Plotter::AddDatafile(dir + "/plot.txt", ComposeFilename(dir, "data", ".txt"), Plotter::POINTS);
 	thread th(CLIControl);
 	th.detach();
 
@@ -183,7 +192,9 @@ int main(int argc, char* argv[]) {
 				minSpins = op.extractSpinset(i).getSpins();
 			} else if (nrg == minEnergy)
 				minCount++;
-			dataStream << spins.temp << "\t" << nrg << "\n";
+			hamiltonianWriter << abs(spins.temp) << "\t" << nrg << "\n";
+			maxcutWriter << (matrix.getSum() - nrg) / 2.0
+					<< ", \n";
 			spins.temp += step;
 		}
 		progress = (spins.temp * spins.temp - dTemp * dTemp)
@@ -191,7 +202,8 @@ int main(int argc, char* argv[]) {
 		logWriter << "[" << getTimeString(time(NULL) - start) << "] "
 				<< "Pull session complete, current temperature: " << spins.temp
 				<< endl << endl;
-		dataStream.flush();
+		hamiltonianWriter.flush();
+		maxcutWriter.flush();
 	}
 
 	// Disable output && write data to log
@@ -202,6 +214,7 @@ int main(int argc, char* argv[]) {
 	spinWriter.open(dir + "/spins.txt", ios::out);
 	spinWriter << "Matrix size: " << matrix.getSize() << endl;
 	spinWriter << "Minimum energy: " << minEnergy << endl;
+	spinWriter << "Maximum cut: " << (matrix.getSum() - minEnergy) / 2.0 << endl;
 	spinWriter << "Hit count: " << minCount << endl;
 	spinWriter << "Temperature bounds: from " << dTemp << " to " << upTemp
 			<< ", " << (int) ((upTemp - dTemp) / step) << " points in total"
