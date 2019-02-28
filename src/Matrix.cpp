@@ -71,7 +71,7 @@ void Matrix::buildMat(ifstream ifs) {
 		ifs >> i;
 		ifs >> j;
 		ifs >> val;
-		matrix[i * size + j] = val;
+		matrix[(i - 1) * size + (j - 1)] = val;
 	}
 }
 

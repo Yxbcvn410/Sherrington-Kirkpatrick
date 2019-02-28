@@ -1,5 +1,5 @@
 #define VERSION 4.4
-#define BUILD 75
+#define BUILD 77
 
 #include <stdio.h>
 #include <iostream>
@@ -84,7 +84,8 @@ void CLIControl() {
 				<< endl;
 		this_thread::sleep_for(std::chrono::seconds(1));
 	}
-	cout << "Computation complete in " << getTimeString(time(NULL) - start) << endl;
+	cout << "Computation complete in " << getTimeString(time(NULL) - start)
+			<< endl;
 }
 
 int main(int argc, char* argv[]) {
@@ -95,10 +96,10 @@ int main(int argc, char* argv[]) {
 	Matrix matrix(2);
 	string dir;
 	double dTemp = 0;
-	double upTemp;
+	double upTemp = -1;
 	double step = 0.001;
 	double pullStep = 0.1;
-	int blockCount;
+	int blockCount = -1;
 	int nSave;
 	bool doRand = true;
 	ofstream logWriter;
@@ -125,10 +126,13 @@ int main(int argc, char* argv[]) {
 	logWriter.open(dir + "/log.txt", ios::out | ios::app);
 
 	if (nSave == -1) { // If an error occured while parsing
-		cout << "Program terminated due to an error in launch config." << endl;
-		logWriter << "Program terminated due to an error in launch config."
+		cout << "Errors in launch config detected. Fallback to CLI input."
 				<< endl;
-		return -1;
+		logWriter << "Errors in launch config detected. Fallback to CLI input."
+				<< endl;
+		nSave = StartupUtils::grabFromCLI(ref(dTemp), ref(upTemp), ref(step),
+				ref(pullStep), ref(matrix), ref(blockCount), ref(doRand),
+				ref(dir));
 	}
 
 	logWriter << "Starting with ";
@@ -146,8 +150,7 @@ int main(int argc, char* argv[]) {
 		logWriter << "existing matrix, size " << matrix.getSize() << endl;
 
 	// Init plot, clock, CUDA, CLI
-	FilesystemProvider::makeFile(
-			ComposeFilename(dir, "img", ".png"));
+	FilesystemProvider::makeFile(ComposeFilename(dir, "img", ".png"));
 	Plotter::InitScriptfile(dir + "/plot.txt",
 			ComposeFilename(dir, "img", ".png"), "Hamiltonian");
 	ofstream hamiltonianWriter(
@@ -193,8 +196,7 @@ int main(int argc, char* argv[]) {
 			} else if (nrg == minEnergy)
 				minCount++;
 			hamiltonianWriter << abs(spins.temp) << "\t" << nrg << "\n";
-			maxcutWriter << (matrix.getSum() - nrg) / 2.0
-					<< ", \n";
+			maxcutWriter << (matrix.getSum() - nrg) / 2.0 << ", \n";
 			spins.temp += step;
 		}
 		progress = (spins.temp * spins.temp - dTemp * dTemp)
@@ -214,7 +216,8 @@ int main(int argc, char* argv[]) {
 	spinWriter.open(dir + "/spins.txt", ios::out);
 	spinWriter << "Matrix size: " << matrix.getSize() << endl;
 	spinWriter << "Minimum energy: " << minEnergy << endl;
-	spinWriter << "Maximum cut: " << (matrix.getSum() - minEnergy) / 2.0 << endl;
+	spinWriter << "Maximum cut: " << (matrix.getSum() - minEnergy) / 2.0
+			<< endl;
 	spinWriter << "Hit count: " << minCount << endl;
 	spinWriter << "Temperature bounds: from " << dTemp << " to " << upTemp
 			<< ", " << (int) ((upTemp - dTemp) / step) << " points in total"

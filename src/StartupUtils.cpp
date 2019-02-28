@@ -36,15 +36,40 @@ int StartupUtils::grabFromCLI(double& startRef, double& endRef, double& stepRef,
 		wDirRef = "";
 	}
 	cout << "Lower temperature limit?" << endl;
-	cin >> startRef;
+	if (startRef != -1)
+		cout << "Current value: " << startRef << ", -c to leave unchanged."
+				<< endl;
+	cin >> resp;
+	if (resp != "-c")
+		startRef = stod(resp);
 	cout << "Upper temperature limit?" << endl;
-	cin >> endRef;
+	if (endRef != -1)
+		cout << "Current value: " << endRef << ", -c to leave unchanged."
+				<< endl;
+	cin >> resp;
+	if (resp != "-c")
+		endRef = stod(resp);
 	cout << "Calculation step?" << endl;
-	cin >> stepRef;
+	if (stepRef != -1)
+		cout << "Current value: " << stepRef << ", -c to leave unchanged."
+				<< endl;
+	cin >> resp;
+	if (resp != "-c")
+		stepRef = stod(resp);
 	cout << "When moving to zero step?" << endl;
-	cin >> pStepRef;
+	if (pStepRef != -1)
+		cout << "Current value: " << pStepRef << ", -c to leave unchanged."
+				<< endl;
+	cin >> resp;
+	if (resp != "-c")
+		pStepRef = stod(resp);
 	cout << "CUDA block count?" << endl;
-	cin >> blockCountRef;
+	if (blockCountRef != -1)
+			cout << "Current value: " << blockCountRef << ", -c to leave unchanged."
+					<< endl;
+		cin >> resp;
+		if (resp != "-c")
+			blockCountRef = stod(resp);
 	cout << "Model file? (-r to randomize)" << endl;
 	cin >> resp;
 	int ocode = 0;
@@ -80,41 +105,42 @@ int StartupUtils::grabFromFile(double& startRef, double& endRef,
 				<< "Is it in the working directory?" << endl;
 		return -1;
 	}
-	string s;
+	string buf;
 	bool mkDir = false;
 	bool cStep = false;
+	double pCount = 1;
 	int needSave = 1;
-	ifs >> s;
+	ifs >> buf;
 	while (ifs.peek() != EOF) {
-		if (s == "&start") {
+		if (buf == "&start") {
 			ifs >> startRef;
-		} else if (s == "&end" || s == "&e") {
+		} else if (buf == "&end" || buf == "&e") {
 			ifs >> endRef;
-		} else if (s == "&step") {
+		} else if (buf == "&step") {
 			ifs >> stepRef;
 			cStep = false;
-		} else if (s == "&c" || s == "&count") {
-			ifs >> stepRef;
+		} else if (buf == "&c" || buf == "&count") {
+			ifs >> pCount;
 			cStep = true;
-		} else if (s == "&pstep" || s == "&ps") {
+		} else if (buf == "&pstep" || buf == "&ps") {
 			ifs >> pStepRef;
-		} else if (s == "&bc" || s == "&bcount") {
+		} else if (buf == "&bc" || buf == "&bcount") {
 			ifs >> blockCountRef;
-		} else if (s == "&msize" || s == "&ms") {
+		} else if (buf == "&msize" || buf == "&ms") {
 			int size;
 			ifs >> size;
 			modelRef = Matrix(size);
 			modelRef.Randomize();
 			needSave = 1;
-		} else if (s == "&wdir" || s == "&wd" || s == "&dir") {
+		} else if (buf == "&wdir" || buf == "&wd" || buf == "&dir") {
 			ifs >> wDirRef;
 			if (wDirRef == "-a" || wDirRef == "-A") {
 				mkDir = true;
 				wDirRef = "";
 			} else
 				mkDir = false;
-		} else if (s == "&mloc" || s == "&ml" || s == "&ml_b"
-				|| s == "&mloc_b") {
+		} else if (buf == "&mloc" || buf == "&ml" || buf == "&ml_b"
+				|| buf == "&mloc_b") {
 			needSave = 0;
 			string loc;
 			ifs >> loc;
@@ -126,12 +152,12 @@ int StartupUtils::grabFromFile(double& startRef, double& endRef,
 						<< endl;
 				return -1;
 			}
-			if (s == "&ml_b" || s == "&mloc_b")
+			if (buf == "&ml_b" || buf == "&mloc_b")
 				modelRef.buildMat(ifstream(loc));
 			else
 				modelRef = Matrix(ifstream(loc));
-		} else if (s == "&ird" || s == "&irand" || s == "&initrd"
-				|| s == "&initrand") {
+		} else if (buf == "&ird" || buf == "&irand" || buf == "&initrd"
+				|| buf == "&initrand") {
 			string buf;
 			ifs >> buf;
 			if (buf == "true" || buf == "t")
@@ -143,15 +169,15 @@ int StartupUtils::grabFromFile(double& startRef, double& endRef,
 						<< "Bad word after &irand: " << buf << endl;
 				return -1;
 			}
-		} else if (s[0] == '#') {
+		} else if (buf[0] == '#') {
 			string buf;
 			getline(ifs, buf);
 		} else {
-			cout << "Error 01 in launch config:\n" << "Unknown word: " << s
+			cout << "Error 01 in launch config:\n" << "Unknown word: " << buf
 					<< endl;
 			return -1;
 		}
-		ifs >> s;
+		ifs >> buf;
 	}
 	if (!randRef)
 		cout << "WARNING: Random generator was not initialized." << endl;
@@ -165,7 +191,7 @@ int StartupUtils::grabFromFile(double& startRef, double& endRef,
 		makeDirectory(wDirRef, "");
 	}
 	if (cStep)
-		stepRef = (endRef - startRef) / stepRef;
+		stepRef = (endRef - startRef) / pCount;
 	cout << "Config parsing complete, success." << endl;
 	return needSave;
 }
