@@ -1,5 +1,5 @@
 #define VERSION 4.4
-#define BUILD 77
+#define BUILD 80
 
 #include <stdio.h>
 #include <iostream>
@@ -103,6 +103,7 @@ int main(int argc, char* argv[]) {
 	int nSave;
 	bool doRand = true;
 	ofstream logWriter;
+	bool displayData = false;
 	if (argc >= 2) {
 		//Acquire init config from config
 		try {
@@ -121,6 +122,7 @@ int main(int argc, char* argv[]) {
 		nSave = StartupUtils::grabFromCLI(ref(dTemp), ref(upTemp), ref(step),
 				ref(pullStep), ref(matrix), ref(blockCount), ref(doRand),
 				ref(dir));
+		displayData = true;
 	}
 
 	logWriter.open(dir + "/log.txt", ios::out | ios::app);
@@ -133,6 +135,7 @@ int main(int argc, char* argv[]) {
 		nSave = StartupUtils::grabFromCLI(ref(dTemp), ref(upTemp), ref(step),
 				ref(pullStep), ref(matrix), ref(blockCount), ref(doRand),
 				ref(dir));
+		displayData = true;
 	}
 
 	logWriter << "Starting with ";
@@ -164,8 +167,10 @@ int main(int argc, char* argv[]) {
 
 	CudaOperator op = CudaOperator(matrix, blockCount);
 	start = time(NULL);
-	thread th(CLIControl);
-	th.detach();
+	if (displayData) {
+		thread th(CLIControl);
+		th.detach();
+	}
 
 	// Start calculations
 	Spinset spins(matrix.getSize());

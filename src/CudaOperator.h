@@ -16,7 +16,6 @@ private:
 	//GPU pointers
 	double* devSpins = NULL; //Spinset
 	double* devMat = NULL; //Matrix
-	int* devSize = NULL; //Size
 	double* devTemp = NULL; //Temperature
 	double* meanFieldElems = NULL; //Temporary storage for force computation
 	double* delta = NULL;

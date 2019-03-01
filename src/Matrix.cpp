@@ -64,7 +64,9 @@ string Matrix::getMatrix() {
 }
 
 void Matrix::buildMat(ifstream ifs) {
+	sum = 0;
 	ifs >> size;
+	matrix = new double[size * size];
 	int i, j, val, edges;
 	ifs >> edges;
 	for (int var = 0; var < edges; ++var) {
@@ -72,6 +74,7 @@ void Matrix::buildMat(ifstream ifs) {
 		ifs >> j;
 		ifs >> val;
 		matrix[(i - 1) * size + (j - 1)] = val;
+		sum += val;
 	}
 }
 

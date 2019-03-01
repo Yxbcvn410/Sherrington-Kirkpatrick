@@ -19,7 +19,6 @@ CudaOperator::CudaOperator(Matrix matrix, int blockCnt) {
 	devSpins = NULL;
 	devMat = NULL;
 	meanFieldElems = NULL;
-	devSize = NULL;
 	energyElems = NULL;
 	delta = NULL;
 	devTemp = NULL;
@@ -38,7 +37,6 @@ CudaOperator::CudaOperator(Matrix matrix, int blockCnt) {
 					sizeof(double) * size * blockCount), "malloc");
 	cudaMalloc((void**) &devMat, sizeof(double) * size * size);
 	cudaMalloc((void**) &devSpins, sizeof(double) * size * blockCount);
-	cudaMalloc((void**) &devSize, sizeof(int));
 	cudaMalloc((void**) &energyElems, sizeof(double) * size * size);
 	cudaMalloc((void**) &devTemp, sizeof(double) * blockCount);
 	cudaMalloc((void**) &delta, sizeof(double) * blockCnt);
@@ -47,7 +45,6 @@ CudaOperator::CudaOperator(Matrix matrix, int blockCnt) {
 	checkError(
 			cudaMemcpy(devMat, matrix.getArray(), sizeof(double) * size * size,
 					cudaMemcpyHostToDevice), "memcpy mat to host");
-	cudaMemcpy(devSize, &size, sizeof(int), cudaMemcpyHostToDevice);
 }
 
 void CudaOperator::cudaLoadSpinset(Spinset spinset, int index) {
@@ -64,33 +61,32 @@ void CudaOperator::cudaClear() {
 	cudaFree(devSpins);
 	cudaFree(devMat);
 	cudaFree(meanFieldElems);
-	cudaFree(devSize);
 	cudaFree(devTemp);
 	cudaFree(energyElems);
 	cudaFree(delta);
 }
 
 __global__ void allocHamiltonian(double* devMat, double* devSpins, int index,
-		int* size, double* energyTempor) {
+		int size, double* energyTempor) {
 	int i;
 	int j;
 
 	int wIndex = threadIdx.x;
-	while (wIndex < *size * *size) {
-		i = wIndex % *size;
-		j = (int) (wIndex / *size);
-		energyTempor[wIndex] = devSpins[i + index * *size]
-				* devSpins[j + index * *size] * devMat[wIndex];
+	while (wIndex < size * size) {
+		i = wIndex % size;
+		j = (int) (wIndex / size);
+		energyTempor[wIndex] = devSpins[i + index * size]
+				* devSpins[j + index * size] * devMat[wIndex];
 		wIndex = wIndex + blockDim.x;
 	}
 }
 
-__global__ void quickSum(double* energyTempor, int* size) {
+__global__ void quickSum(double* energyTempor, int size) {
 	long long offset = 1;
 	int wIndex;
-	while (offset < *size * *size) {
+	while (offset < size * size) {
 		wIndex = threadIdx.x;
-		while ((wIndex * 2 + 1) * offset < *size * *size) {
+		while ((wIndex * 2 + 1) * offset < size * size) {
 			energyTempor[wIndex * 2 * offset] += energyTempor[(wIndex * 2 + 1)
 					* offset];
 			wIndex = wIndex + blockDim.x;
@@ -101,9 +97,9 @@ __global__ void quickSum(double* energyTempor, int* size) {
 }
 
 double CudaOperator::extractEnergy(int index) {
-	allocHamiltonian<<<1, blockSize>>>(devMat, devSpins, index, devSize,
+	allocHamiltonian<<<1, blockSize>>>(devMat, devSpins, index, size,
 			energyElems);
-	quickSum<<<1, blockSize>>>(energyElems, devSize);
+	quickSum<<<1, blockSize>>>(energyElems, size);
 	cudaDeviceSynchronize();
 	cudaError_t err = cudaGetLastError();
 	checkError(err, "Kernel at extractEnergy");
@@ -125,7 +121,7 @@ Spinset CudaOperator::extractSpinset(int index) {
 	return outSpins;
 }
 
-__global__ void cudaKernelPull(double* mat, double* spins, int* size,
+__global__ void cudaKernelPull(double* mat, double* spins, int size,
 		double* temp, double tempStep, double* meanFieldElements,
 		double* diff) {
 	int blockId = blockIdx.x;
@@ -146,18 +142,18 @@ __global__ void cudaKernelPull(double* mat, double* spins, int* size,
 			if (thrId == 0)
 				diff[blockId] = 0;
 
-			for (int spinId = 0; spinId < *size; ++spinId) {
+			for (int spinId = 0; spinId < size; ++spinId) {
 				__syncthreads();
 				int wIndex = thrId;
-				while (wIndex < *size) {
+				while (wIndex < size) {
 					if (wIndex > spinId)
-						meanFieldElements[wIndex + blockId * *size] = mat[spinId
-								* *size + wIndex]
-								* spins[wIndex + blockId * *size];
+						meanFieldElements[wIndex + blockId * size] = mat[spinId
+								* size + wIndex]
+								* spins[wIndex + blockId * size];
 					else
-						meanFieldElements[wIndex + blockId * *size] = mat[wIndex
-								* *size + spinId]
-								* spins[wIndex + blockId * *size];
+						meanFieldElements[wIndex + blockId * size] = mat[wIndex
+								* size + spinId]
+								* spins[wIndex + blockId * size];
 					wIndex = wIndex + blockDim.x;
 				}
 				__syncthreads();
@@ -165,38 +161,38 @@ __global__ void cudaKernelPull(double* mat, double* spins, int* size,
 				// Parallelized mean-field computation
 				double meanField = 0;
 				long long offset = 1;
-				while (offset < *size) {
+				while (offset < size) {
 					wIndex = thrId;
-					while ((wIndex * 2 + 1) * offset < *size) {
-						meanFieldElements[wIndex * 2 * offset + blockId * *size] +=
+					while ((wIndex * 2 + 1) * offset < size) {
+						meanFieldElements[wIndex * 2 * offset + blockId * size] +=
 								meanFieldElements[(wIndex * 2 + 1) * offset
-										+ blockId * *size];
+										+ blockId * size];
 						wIndex = wIndex + blockDim.x;
 					}
 					offset *= 2;
 					__syncthreads();
 				}
 				if (thrId == 0)
-					meanField = meanFieldElements[blockId * *size];
+					meanField = meanFieldElements[blockId * size];
 
 				// Mean-field calculation complete - write new spin and delta
 				if (thrId == 0) {
-					double old = spins[spinId + blockId * *size];
+					double old = spins[spinId + blockId * size];
 					if (temp[blockId] > 0) {
-						spins[spinId + blockId * *size] = -1
+						spins[spinId + blockId * size] = -1
 								* tanh(meanField / temp[blockId]);
 					} else if (meanField > 0)
-						spins[spinId + blockId * *size] = -1;
+						spins[spinId + blockId * size] = -1;
 					else if (meanField < 0)
-						spins[spinId + blockId * *size] = 1;
+						spins[spinId + blockId * size] = 1;
 					else
-						spins[spinId + blockId * *size] = 0;
+						spins[spinId + blockId * size] = 0;
 
 					// Refresh delta
 					if (diff[blockId]
-							< fabs(old - spins[spinId + blockId * *size]))
+							< fabs(old - spins[spinId + blockId * size]))
 						diff[blockId] = fabs(
-								old - spins[spinId + blockId * *size]);
+								old - spins[spinId + blockId * size]);
 				}
 				__syncthreads();
 			}
@@ -209,7 +205,7 @@ __global__ void cudaKernelPull(double* mat, double* spins, int* size,
 }
 
 void CudaOperator::cudaPull(double pStep) {
-	cudaKernelPull<<<blockCount, blockSize>>>(devMat, devSpins, devSize,
+	cudaKernelPull<<<blockCount, blockSize>>>(devMat, devSpins, size,
 			devTemp, pStep, meanFieldElems, delta);
 	cudaDeviceSynchronize();
 	cudaError_t err = cudaGetLastError();
