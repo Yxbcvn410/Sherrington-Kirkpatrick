@@ -12,11 +12,10 @@
 namespace StartupUtils {
 int grabFromFile(double& startRef, double& endRef, double& stepRef,
 		double& pStepRef, Matrix& modelRef, int& blockCountRef, bool& randRef,
-		string& wDirRef, string confLocation);
+		string& wDirRef, bool& useCLI, string confLocation);
 int grabFromCLI(double& startRef, double& endRef, double& stepRef,
 		double& pStepRef, Matrix& modelRef, int& blockCountRef, bool& randRef,
 		string& wDirRef);
-string getCurrentWorkingDir();
 }
 
 #endif /* STARTUPUTILS_H_ */

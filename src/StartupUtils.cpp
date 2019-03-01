@@ -70,16 +70,19 @@ int StartupUtils::grabFromCLI(double& startRef, double& endRef, double& stepRef,
 		cin >> resp;
 		if (resp != "-c")
 			blockCountRef = stod(resp);
-	cout << "Model file? (-r to randomize)" << endl;
+	cout << "Matrix file path? (-r to randomize, -b to build)" << endl;
 	cin >> resp;
 	int ocode = 0;
 	if (resp == "-r" || resp == "-R") {
 		int msize;
-		cout << "Model size?" << endl;
+		cout << "Matrix size?" << endl;
 		cin >> msize;
 		modelRef = Matrix(msize);
 		ocode = 1;
-	} else
+	} else if(resp == "-b" || resp == "-B"){
+		cout << "Matrix builder file path?" << endl;
+		modelRef.buildMat(ifstream(resp));
+	}else
 		modelRef = Matrix(ifstream(resp));
 	if (mkDir) {
 		ostringstream oss;
@@ -95,7 +98,7 @@ int StartupUtils::grabFromCLI(double& startRef, double& endRef, double& stepRef,
 
 int StartupUtils::grabFromFile(double& startRef, double& endRef,
 		double& stepRef, double& pStepRef, Matrix& modelRef, int& blockCountRef,
-		bool& randRef, string& wDirRef, string confLocation) {
+		bool& randRef, string& wDirRef, bool& useCLI, string confLocation) {
 	ifstream ifs;
 	ifs.open(confLocation);
 	if (ifs.good())
@@ -167,6 +170,18 @@ int StartupUtils::grabFromFile(double& startRef, double& endRef,
 			else {
 				cout << "Error 04 in launch config:\n"
 						<< "Bad word after &irand: " << buf << endl;
+				return -1;
+			}
+		} else if (buf == "&cli" || buf == "&usecli") {
+			string buf;
+			ifs >> buf;
+			if (buf == "true" || buf == "t")
+				useCLI = true;
+			else if (buf == "false" || buf == "f")
+				useCLI = false;
+			else {
+				cout << "Error 05 in launch config:\n"
+						<< "Bad word after &cli: " << buf << endl;
 				return -1;
 			}
 		} else if (buf[0] == '#') {

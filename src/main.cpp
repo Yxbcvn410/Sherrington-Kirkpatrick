@@ -1,5 +1,5 @@
-#define VERSION 4.4
-#define BUILD 80
+#define VERSION 4.5
+#define BUILD 82
 
 #include <stdio.h>
 #include <iostream>
@@ -114,7 +114,7 @@ int main(int argc, char* argv[]) {
 		string wd = FilesystemProvider::getCurrentWorkingDirectory();
 		nSave = StartupUtils::grabFromFile(ref(dTemp), ref(upTemp), ref(step),
 				ref(pullStep), ref(matrix), ref(blockCount), ref(doRand),
-				ref(dir), wd + "/config");
+				ref(dir), ref(displayData), wd + "/config");
 	} else {
 		//Acquire init config from cin
 		nSave = StartupUtils::grabFromCLI(ref(dTemp), ref(upTemp), ref(step),

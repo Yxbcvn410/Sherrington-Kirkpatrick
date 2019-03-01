@@ -183,10 +183,8 @@ __global__ void cudaKernelPull(double* mat, double* spins, int size,
 								* tanh(meanField / temp[blockId]);
 					} else if (meanField > 0)
 						spins[spinId + blockId * size] = -1;
-					else if (meanField < 0)
-						spins[spinId + blockId * size] = 1;
 					else
-						spins[spinId + blockId * size] = 0;
+						spins[spinId + blockId * size] = 1;
 
 					// Refresh delta
 					if (diff[blockId]
@@ -205,8 +203,8 @@ __global__ void cudaKernelPull(double* mat, double* spins, int size,
 }
 
 void CudaOperator::cudaPull(double pStep) {
-	cudaKernelPull<<<blockCount, blockSize>>>(devMat, devSpins, size,
-			devTemp, pStep, meanFieldElems, delta);
+	cudaKernelPull<<<blockCount, blockSize>>>(devMat, devSpins, size, devTemp,
+			pStep, meanFieldElems, delta);
 	cudaDeviceSynchronize();
 	cudaError_t err = cudaGetLastError();
 	checkError(err, "Kernel at cudaPull");
