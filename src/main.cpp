@@ -8,7 +8,7 @@
 #include <thread>
 #include <unistd.h>
 #include <ctime>
-#include <mutex>
+#include <cmath>
 #include "Matrix.h"
 #include "Spinset.h"
 #include "FilesystemProvider.h"
@@ -23,8 +23,6 @@ using namespace FilesystemProvider;
 double minEnergy;
 int minCount;
 string minSpins;
-mutex mcMutex;
-mutex mesMutex;
 
 double progress;
 time_t start;
@@ -200,7 +198,7 @@ int main(int argc, char* argv[]) {
 				minSpins = op.extractSpinset(i).getSpins();
 			} else if (nrg == minEnergy)
 				minCount++;
-			hamiltonianWriter << abs(spins.temp) << "\t" << nrg << "\n";
+			hamiltonianWriter << fabs(spins.temp) << "\t" << nrg << "\n";
 			maxcutWriter << (matrix.getSum() - nrg) / 2.0 << ", \n";
 			spins.temp += step;
 		}
