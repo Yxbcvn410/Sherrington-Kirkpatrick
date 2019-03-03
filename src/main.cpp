@@ -1,5 +1,5 @@
 #define VERSION 4.5
-#define BUILD 82
+#define BUILD 83
 
 #include <stdio.h>
 #include <iostream>
@@ -23,6 +23,7 @@ using namespace FilesystemProvider;
 double minEnergy;
 int minCount;
 string minSpins;
+double minTemp;
 
 double progress;
 time_t start;
@@ -84,6 +85,28 @@ void CLIControl() {
 	}
 	cout << "Computation complete in " << getTimeString(time(NULL) - start)
 			<< endl;
+}
+
+void saveMinData(string dir, Matrix matrix, double dTemp, double upTemp, double step, int blockCount){
+		ofstream spinWriter;
+		if(FilesystemProvider::FileExists(dir + "/spins.txt"))
+			system(("rm -r " + dir + "/spins.txt").c_str());
+		spinWriter.open(dir + "/spins.txt", ios::out);
+		spinWriter << "Matrix size: " << matrix.getSize() << endl;
+		spinWriter << "Minimum energy: " << minEnergy << endl;
+		spinWriter << "Maximum cut: " << (matrix.getSum() - minEnergy) / 2.0
+				<< endl;
+		spinWriter << "Hit count: " << minCount << endl;
+		spinWriter << "Hit temperature: " << minTemp << endl;
+		spinWriter << "Temperature bounds: from " << dTemp << " to " << upTemp
+				<< ", " << (int) ((upTemp - dTemp) / step) << " points in total"
+				<< endl;
+		spinWriter << "Spin assessment:" << endl << minSpins << endl;
+		spinWriter << "Computed using " << blockCount << " thread blocks in "
+				<< getTimeString(difftime(time(NULL), start)) << endl;
+		spinWriter.flush();
+		spinWriter.close();
+		Plotter::doPlot(dir + "/plot.txt");
 }
 
 int main(int argc, char* argv[]) {
@@ -173,7 +196,7 @@ int main(int argc, char* argv[]) {
 	// Start calculations
 	Spinset spins(matrix.getSize());
 	spins.temp = dTemp;
-	while (spins.temp < upTemp) {
+	while (spins.temp + step < upTemp) {
 		logWriter << "[" << getTimeString(time(NULL) - start) << "] "
 				<< "Starting pull session. Loading spinsets..." << endl;
 		for (int i = 0; i < blockCount; i++) {
@@ -196,6 +219,7 @@ int main(int argc, char* argv[]) {
 				minEnergy = nrg;
 				minCount = 1;
 				minSpins = op.extractSpinset(i).getSpins();
+				minTemp = spins.temp;
 			} else if (nrg == minEnergy)
 				minCount++;
 			hamiltonianWriter << fabs(spins.temp) << "\t" << nrg << "\n";
@@ -209,26 +233,12 @@ int main(int argc, char* argv[]) {
 				<< endl << endl;
 		hamiltonianWriter.flush();
 		maxcutWriter.flush();
+		saveMinData(dir, matrix, dTemp, spins.temp, step, blockCount);
 	}
 
 	// Disable output && write data to log
 	progress = -1;
 	logWriter << "Calculation complete in "
-			<< getTimeString(difftime(time(NULL), start)) << endl;
-	ofstream spinWriter;
-	spinWriter.open(dir + "/spins.txt", ios::out);
-	spinWriter << "Matrix size: " << matrix.getSize() << endl;
-	spinWriter << "Minimum energy: " << minEnergy << endl;
-	spinWriter << "Maximum cut: " << (matrix.getSum() - minEnergy) / 2.0
-			<< endl;
-	spinWriter << "Hit count: " << minCount << endl;
-	spinWriter << "Temperature bounds: from " << dTemp << " to " << upTemp
-			<< ", " << (int) ((upTemp - dTemp) / step) << " points in total"
-			<< endl;
-	spinWriter << "Spin assessment:" << endl << minSpins << endl;
-	spinWriter << "Computed using " << blockCount << " thread blocks in "
-			<< getTimeString(difftime(time(NULL), start)) << endl;
-	spinWriter.flush();
-	spinWriter.close();
-	Plotter::doPlot(dir + "/plot.txt");
+					<< getTimeString(difftime(time(NULL), start)) << endl;
+	saveMinData(dir, matrix, dTemp, upTemp, step, blockCount);
 }

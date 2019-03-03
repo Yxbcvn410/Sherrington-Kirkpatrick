@@ -81,6 +81,7 @@ int StartupUtils::grabFromCLI(double& startRef, double& endRef, double& stepRef,
 		ocode = 1;
 	} else if(resp == "-b" || resp == "-B"){
 		cout << "Matrix builder file path?" << endl;
+		cin >> resp;
 		modelRef.buildMat(ifstream(resp));
 	}else
 		modelRef = Matrix(ifstream(resp));
