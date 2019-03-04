@@ -1,5 +1,5 @@
 #define VERSION 4.5
-#define BUILD 83
+#define BUILD 84
 
 #include <stdio.h>
 #include <iostream>
@@ -20,10 +20,11 @@ using namespace std;
 using namespace FilesystemProvider;
 
 //Minimum storage
-double minEnergy;
+double minHamiltonian;
 int minCount;
 string minSpins;
 double minTemp;
+long double hamSum;
 
 double progress;
 time_t start;
@@ -87,38 +88,44 @@ void CLIControl() {
 			<< endl;
 }
 
-void saveMinData(string dir, Matrix matrix, double dTemp, double upTemp, double step, int blockCount){
-		ofstream spinWriter;
-		if(FilesystemProvider::FileExists(dir + "/spins.txt"))
-			system(("rm -r " + dir + "/spins.txt").c_str());
-		spinWriter.open(dir + "/spins.txt", ios::out);
-		spinWriter << "Matrix size: " << matrix.getSize() << endl;
-		spinWriter << "Minimum energy: " << minEnergy << endl;
-		spinWriter << "Maximum cut: " << (matrix.getSum() - minEnergy) / 2.0
-				<< endl;
-		spinWriter << "Hit count: " << minCount << endl;
-		spinWriter << "Hit temperature: " << minTemp << endl;
-		spinWriter << "Temperature bounds: from " << dTemp << " to " << upTemp
-				<< ", " << (int) ((upTemp - dTemp) / step) << " points in total"
-				<< endl;
-		spinWriter << "Spin assessment:" << endl << minSpins << endl;
-		spinWriter << "Computed using " << blockCount << " thread blocks in "
-				<< getTimeString(difftime(time(NULL), start)) << endl;
-		spinWriter.flush();
-		spinWriter.close();
-		Plotter::doPlot(dir + "/plot.txt");
+void saveMinData(string dir, Matrix matrix, long double dTemp,
+		long double upTemp, long double step, int blockCount) {
+	ofstream spinWriter;
+	if (FilesystemProvider::FileExists(dir + "/spins.txt"))
+		system(("rm -r " + dir + "/spins.txt").c_str());
+	spinWriter.open(dir + "/spins.txt", ios::out);
+	spinWriter << "Matrix size: " << matrix.getSize() << endl;
+	spinWriter << "Minimum hamiltonian: " << minHamiltonian << endl;
+	spinWriter << "Maximum cut: " << (matrix.getSum() - minHamiltonian) / 2.0
+			<< endl;
+	spinWriter << "Hit count: " << minCount << endl;
+	spinWriter << "Hit temperature: " << minTemp << endl;
+	spinWriter << "Middle hamiltonian: " << hamSum * step / (upTemp - dTemp)
+			<< endl;
+	spinWriter << "Middle max-cut: "
+			<< (matrix.getSum() - (hamSum) * step / (upTemp - dTemp)) * 0.5
+			<< endl;
+	spinWriter << "Temperature bounds: from " << dTemp << " to " << upTemp
+			<< ", " << (int) ((upTemp - dTemp) / step) << " points in total"
+			<< endl;
+	spinWriter << "Spin assessment:" << endl << minSpins << endl;
+	spinWriter << "Computed using " << blockCount << " thread blocks in "
+			<< getTimeString(difftime(time(NULL), start)) << endl;
+	spinWriter.flush();
+	spinWriter.close();
+	Plotter::doPlot(dir + "/plot.txt");
 }
 
 int main(int argc, char* argv[]) {
-	cout << "Calc program by Yxbcvn410, version " << VERSION << ", build "
+	cout << "NMFA-like analysis by Yxbcvn410, version " << VERSION << ", build "
 			<< BUILD << endl;
 
 	//Init model
 	Matrix matrix(2);
 	string dir;
-	double dTemp = 0;
-	double upTemp = -1;
-	double step = 0.001;
+	long double dTemp = 0;
+	long double upTemp = -1;
+	long double step = 0.001;
 	double pullStep = 0.1;
 	int blockCount = -1;
 	int nSave;
@@ -131,7 +138,10 @@ int main(int argc, char* argv[]) {
 			matrix = Matrix(stoi(argv[1]));
 		} catch (exception & e) {
 		}
-		if (argc >= 3) {
+		if (argc >= 2) {
+			dTemp = stod(argv[2]);
+			upTemp = stod(argv[3]);
+		} else if (argc >= 3) {
 			upTemp = stod(argv[2]);
 		}
 		string wd = FilesystemProvider::getCurrentWorkingDirectory();
@@ -214,13 +224,14 @@ int main(int argc, char* argv[]) {
 		for (int i = 0; i < blockCount; i++) {
 			if (spins.temp >= upTemp)
 				continue;
-			double nrg = op.extractEnergy(i);
-			if (nrg < minEnergy) {
-				minEnergy = nrg;
+			double nrg = op.extractHamiltonian(i);
+			hamSum += nrg;
+			if (nrg < minHamiltonian) {
+				minHamiltonian = nrg;
 				minCount = 1;
 				minSpins = op.extractSpinset(i).getSpins();
 				minTemp = spins.temp;
-			} else if (nrg == minEnergy)
+			} else if (nrg == minHamiltonian)
 				minCount++;
 			hamiltonianWriter << fabs(spins.temp) << "\t" << nrg << "\n";
 			maxcutWriter << (matrix.getSum() - nrg) / 2.0 << ", \n";
@@ -239,6 +250,6 @@ int main(int argc, char* argv[]) {
 	// Disable output && write data to log
 	progress = -1;
 	logWriter << "Calculation complete in "
-					<< getTimeString(difftime(time(NULL), start)) << endl;
+			<< getTimeString(difftime(time(NULL), start)) << endl;
 	saveMinData(dir, matrix, dTemp, upTemp, step, blockCount);
 }

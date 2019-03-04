@@ -28,7 +28,7 @@ public:
 	CudaOperator(Matrix matrix, int blockCount);
 	void cudaLoadSpinset(Spinset spinset, int index);
 	void cudaPull(double pStep);
-	double extractEnergy(int index);
+	double extractHamiltonian(int index);
 	Spinset extractSpinset(int index);
 	void cudaClear();
 };

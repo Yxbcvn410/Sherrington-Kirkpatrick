@@ -10,12 +10,13 @@
 #include "Matrix.h"
 
 namespace StartupUtils {
-int grabFromFile(double& startRef, double& endRef, double& stepRef,
-		double& pStepRef, Matrix& modelRef, int& blockCountRef, bool& randRef,
-		string& wDirRef, bool& useCLI, string confLocation);
-int grabFromCLI(double& startRef, double& endRef, double& stepRef,
-		double& pStepRef, Matrix& modelRef, int& blockCountRef, bool& randRef,
-		string& wDirRef);
+int grabFromFile(long double& startRef, long double& endRef,
+		long double& stepRef, double& pStepRef, Matrix& modelRef,
+		int& blockCountRef, bool& randRef, string& wDirRef, bool& useCLI,
+		string confLocation);
+int grabFromCLI(long double& startRef, long double& endRef,
+		long double& stepRef, double& pStepRef, Matrix& modelRef,
+		int& blockCountRef, bool& randRef, string& wDirRef);
 }
 
 #endif /* STARTUPUTILS_H_ */

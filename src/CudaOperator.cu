@@ -96,7 +96,7 @@ __global__ void quickSum(double* energyTempor, int size) {
 	}
 }
 
-double CudaOperator::extractEnergy(int index) {
+double CudaOperator::extractHamiltonian(int index) {
 	allocHamiltonian<<<1, blockSize>>>(devMat, devSpins, index, size,
 			energyElems);
 	quickSum<<<1, blockSize>>>(energyElems, size);
