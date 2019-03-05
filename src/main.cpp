@@ -138,7 +138,7 @@ int main(int argc, char* argv[]) {
 			matrix = Matrix(stoi(argv[1]));
 		} catch (exception & e) {
 		}
-		if (argc >= 2) {
+		if (argc >= 4) {
 			dTemp = stod(argv[2]);
 			upTemp = stod(argv[3]);
 		} else if (argc >= 3) {
