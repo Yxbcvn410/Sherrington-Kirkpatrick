@@ -1,5 +1,5 @@
-#define VERSION 4.5
-#define BUILD 84
+#define VERSION 4.6
+#define BUILD 87
 
 #include <stdio.h>
 #include <iostream>
@@ -122,56 +122,66 @@ int main(int argc, char* argv[]) {
 
 	//Init model
 	Matrix matrix(2);
-	string dir;
+	string dir = "";
 	long double dTemp = 0;
 	long double upTemp = -1;
 	long double step = 0.001;
-	double pullStep = 0.1;
+	double pullStep = 1;
 	int blockCount = -1;
-	int nSave;
+	int nSave = -2;
 	bool doRand = true;
 	ofstream logWriter;
 	bool displayData = false;
+
+	//Try parse config file
+	cout << "Trying to parse init config... " << endl;
+	try {
+		ostringstream oss;
+		oss
+				<< ifstream(
+						FilesystemProvider::getCurrentWorkingDirectory()
+								+ "/config").rdbuf();
+
+		nSave = StartupUtils::grabFromString(oss.str(), ref(dTemp), ref(upTemp),
+				ref(step), ref(pullStep), ref(matrix), ref(blockCount),
+				ref(doRand), ref(dir));
+		cout << "Done." << endl;
+	} catch (exception & e) {
+		cout << "Failed. \nCheck config file existence." << endl;
+	}
+
 	if (argc >= 2) {
 		//Acquire init config from config
-		try {
-			matrix = Matrix(stoi(argv[1]));
-		} catch (exception & e) {
+		cout << "Trying to parse arguments... " << endl;
+		ostringstream argParams;
+		for (int i = 1; i < argc; i++) {
+			argParams << argv[i] << " ";
 		}
-		if (argc >= 4) {
-			dTemp = stod(argv[2]);
-			upTemp = stod(argv[3]);
-		} else if (argc >= 3) {
-			upTemp = stod(argv[2]);
-		}
-		string wd = FilesystemProvider::getCurrentWorkingDirectory();
-		nSave = StartupUtils::grabFromFile(ref(dTemp), ref(upTemp), ref(step),
-				ref(pullStep), ref(matrix), ref(blockCount), ref(doRand),
-				ref(dir), ref(displayData), wd + "/config");
-	} else {
-		//Acquire init config from cin
-		nSave = StartupUtils::grabFromCLI(ref(dTemp), ref(upTemp), ref(step),
+		StartupUtils::grabFromString(argParams.str(), ref(dTemp), ref(upTemp),
+				ref(step), ref(pullStep), ref(matrix), ref(blockCount),
+				ref(doRand), ref(dir));
+		cout << "Done." << endl;
+	}
+
+	if (dir == "" || upTemp == -1 || blockCount == -1
+			|| matrix.getSize() == 2) {
+		cout
+				<< "Not all init parameters were assigned. Fallback to interactive mode."
+				<< endl;
+		nSave = StartupUtils::grabInteractive(ref(dTemp), ref(upTemp), ref(step),
 				ref(pullStep), ref(matrix), ref(blockCount), ref(doRand),
 				ref(dir));
 		displayData = true;
 	}
+
+	if (!doRand)
+		cout << "WARNING: Random generator was not initialized." << endl;
+	else
+		srand(time(0));
 
 	logWriter.open(dir + "/log.txt", ios::out | ios::app);
 
-	if (nSave == -1) { // If an error occured while parsing
-		cout << "Errors in launch config detected. Fallback to CLI input."
-				<< endl;
-		logWriter << "Errors in launch config detected. Fallback to CLI input."
-				<< endl;
-		nSave = StartupUtils::grabFromCLI(ref(dTemp), ref(upTemp), ref(step),
-				ref(pullStep), ref(matrix), ref(blockCount), ref(doRand),
-				ref(dir));
-		displayData = true;
-	}
-
 	logWriter << "Starting with ";
-	if (doRand)
-		srand(time(NULL));
 
 	if (nSave == 1) { //Export matrix if needed
 		matrix.Randomize();
@@ -183,7 +193,7 @@ int main(int argc, char* argv[]) {
 	} else
 		logWriter << "existing matrix, size " << matrix.getSize() << endl;
 
-	// Init plot, clock, CUDA, CLI
+// Init plot, clock, CUDA, CLI
 	FilesystemProvider::makeFile(ComposeFilename(dir, "img", ".png"));
 	Plotter::InitScriptfile(dir + "/plot.txt",
 			ComposeFilename(dir, "img", ".png"), "Hamiltonian");
@@ -203,10 +213,10 @@ int main(int argc, char* argv[]) {
 		th.detach();
 	}
 
-	// Start calculations
+// Start calculations
 	Spinset spins(matrix.getSize());
 	spins.temp = dTemp;
-	while (spins.temp + step < upTemp) {
+	do {
 		logWriter << "[" << getTimeString(time(NULL) - start) << "] "
 				<< "Starting pull session. Loading spinsets..." << endl;
 		for (int i = 0; i < blockCount; i++) {
@@ -245,9 +255,9 @@ int main(int argc, char* argv[]) {
 		hamiltonianWriter.flush();
 		maxcutWriter.flush();
 		saveMinData(dir, matrix, dTemp, spins.temp, step, blockCount);
-	}
+	} while (spins.temp + step * 0.001 < upTemp);
 
-	// Disable output && write data to log
+// Disable output && write data to log
 	progress = -1;
 	logWriter << "Calculation complete in "
 			<< getTimeString(difftime(time(NULL), start)) << endl;

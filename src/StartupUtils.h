@@ -10,11 +10,10 @@
 #include "Matrix.h"
 
 namespace StartupUtils {
-int grabFromFile(long double& startRef, long double& endRef,
+int grabFromString(string inp, long double& startRef, long double& endRef,
 		long double& stepRef, double& pStepRef, Matrix& modelRef,
-		int& blockCountRef, bool& randRef, string& wDirRef, bool& useCLI,
-		string confLocation);
-int grabFromCLI(long double& startRef, long double& endRef,
+		int& blockCountRef, bool& randRef, string& wDirRef);
+int grabInteractive(long double& startRef, long double& endRef,
 		long double& stepRef, double& pStepRef, Matrix& modelRef,
 		int& blockCountRef, bool& randRef, string& wDirRef);
 }

@@ -15,7 +15,7 @@
 using namespace std;
 using namespace FilesystemProvider;
 
-int StartupUtils::grabFromCLI(long double& startRef, long double& endRef, long double& stepRef,
+int StartupUtils::grabInteractive(long double& startRef, long double& endRef, long double& stepRef,
 		double& pStepRef, Matrix& modelRef, int& blockCountRef, bool& randRef,
 		string& wDirRef) {
 	cout << "Do you want to init randomizer? (yes/no) ";
@@ -25,7 +25,6 @@ int StartupUtils::grabFromCLI(long double& startRef, long double& endRef, long d
 	bool mkDir = false;
 	if (resp == "yes" || resp == "y") {
 		randRef = true;
-		cout << "Randomizer initialized." << endl;
 	} else
 		cout << "Randomizer was not initialized" << "\n";
 	cout << "Working dir? (-a to auto-create in current working directory)\n"
@@ -97,18 +96,10 @@ int StartupUtils::grabFromCLI(long double& startRef, long double& endRef, long d
 	return ocode;
 }
 
-int StartupUtils::grabFromFile(long double& startRef, long double& endRef,
+int StartupUtils::grabFromString(string inp, long double& startRef, long double& endRef,
 		long double& stepRef, double& pStepRef, Matrix& modelRef, int& blockCountRef,
-		bool& randRef, string& wDirRef, bool& useCLI, string confLocation) {
-	ifstream ifs;
-	ifs.open(confLocation);
-	if (ifs.good())
-		cout << "Config file detected, stay calm..." << endl;
-	else {
-		cout << "Error 00: Config file not detected.\n"
-				<< "Is it in the working directory?" << endl;
-		return -1;
-	}
+		bool& randRef, string& wDirRef) {
+	istringstream ifs = istringstream(inp);
 	string buf;
 	bool mkDir = false;
 	bool cStep = false;
@@ -151,7 +142,7 @@ int StartupUtils::grabFromFile(long double& startRef, long double& endRef,
 			ifstream mfs;
 			mfs.open(loc);
 			if (!mfs.good()) {
-				cout << "Error 02 in launch config:\n"
+				cout << "Error 02 while parsing:\n"
 						<< "No matrix file found at specified location."
 						<< endl;
 				return -1;
@@ -169,34 +160,20 @@ int StartupUtils::grabFromFile(long double& startRef, long double& endRef,
 			else if (buf == "false" || buf == "f")
 				randRef = false;
 			else {
-				cout << "Error 04 in launch config:\n"
+				cout << "Error 04 while parsing:\n"
 						<< "Bad word after &irand: " << buf << endl;
-				return -1;
-			}
-		} else if (buf == "&cli" || buf == "&usecli") {
-			string buf;
-			ifs >> buf;
-			if (buf == "true" || buf == "t")
-				useCLI = true;
-			else if (buf == "false" || buf == "f")
-				useCLI = false;
-			else {
-				cout << "Error 05 in launch config:\n"
-						<< "Bad word after &cli: " << buf << endl;
 				return -1;
 			}
 		} else if (buf[0] == '#') {
 			string buf;
 			getline(ifs, buf);
 		} else {
-			cout << "Error 01 in launch config:\n" << "Unknown word: " << buf
+			cout << "Error 01 while parsing:\n" << "Unknown word: " << buf
 					<< endl;
 			return -1;
 		}
 		ifs >> buf;
 	}
-	if (!randRef)
-		cout << "WARNING: Random generator was not initialized." << endl;
 	if (mkDir) {
 		ostringstream oss;
 		oss << "calc" << modelRef.getSize() << "_";
@@ -208,6 +185,5 @@ int StartupUtils::grabFromFile(long double& startRef, long double& endRef,
 	}
 	if (cStep)
 		stepRef = (endRef - startRef) / pCount;
-	cout << "Config parsing complete, success." << endl;
 	return needSave;
 }
