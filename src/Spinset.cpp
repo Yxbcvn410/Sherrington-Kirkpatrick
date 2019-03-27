@@ -15,7 +15,7 @@
 
 Spinset::Spinset(int size) {
 	this->size = size;
-	spins = new double[size];
+	spins = new float[size];
 	temp = 0;
 }
 
@@ -27,11 +27,11 @@ void Spinset::Randomize(bool bin) {
 			else
 				spins[i] = -1;
 		else
-			spins[i] = (rand() / (double) RAND_MAX) * 2 - 1;
+			spins[i] = (rand() / (float) RAND_MAX) * 2 - 1;
 	}
 }
 
-void Spinset::SetSpin(int index, double value) {
+void Spinset::SetSpin(int index, float value) {
 	spins[index] = value;
 }
 
@@ -43,6 +43,6 @@ const string Spinset::getSpins() {
 	return out.str();
 }
 
-const double* Spinset::getArray() {
+const float* Spinset::getArray() {
 	return spins;
 }

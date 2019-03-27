@@ -1,5 +1,5 @@
 #define VERSION 4.6
-#define BUILD 87
+#define BUILD "87.3.1"
 
 #include <stdio.h>
 #include <iostream>
@@ -23,20 +23,20 @@ using namespace FilesystemProvider;
 double minHamiltonian;
 int minCount;
 string minSpins;
-double minTemp;
+float minTemp;
 long double hamSum;
 
-double progress;
+float progress;
 time_t start;
 
-string composeProgressbar(double state, int pbLen) {
+string composeProgressbar(float state, int pbLen) {
 	ostringstream os;
 	if (state == -1)
 		os << "Dead.";
 	else {
 		os << "[";
 		for (int i = 0; i < pbLen; i++)
-			if (i / (double) pbLen < state)
+			if (i / (float) pbLen < state)
 				os << "#";
 			else
 				os << "-";
@@ -47,7 +47,7 @@ string composeProgressbar(double state, int pbLen) {
 	return os.str();
 }
 
-string getTimeString(double time) {
+string getTimeString(float time) {
 	if (time <= 0)
 		return "0 h 0 m 0 s";
 	ostringstream oss;

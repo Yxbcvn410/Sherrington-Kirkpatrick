@@ -14,11 +14,11 @@
 class CudaOperator {
 private:
 	//GPU pointers
-	double* devSpins = NULL; //Spinset
-	double* devMat = NULL; //Matrix
-	double* devTemp = NULL; //Temperature
-	double* meanFieldElems = NULL; //Temporary storage for force computation
-	double* delta = NULL;
+	float* devSpins = NULL; //Spinset
+	float* devMat = NULL; //Matrix
+	float* devTemp = NULL; //Temperature
+	float* meanFieldElems = NULL; //Temporary storage for force computation
+	float* delta = NULL;
 	double* energyElems = NULL; //Temporary storage for energy computation
 	//CPU variables
 	int size;
@@ -27,7 +27,7 @@ private:
 public:
 	CudaOperator(Matrix matrix, int blockCount);
 	void cudaLoadSpinset(Spinset spinset, int index);
-	void cudaPull(double pStep);
+	void cudaPull(float pStep);
 	double extractHamiltonian(int index);
 	Spinset extractSpinset(int index);
 	void cudaClear();

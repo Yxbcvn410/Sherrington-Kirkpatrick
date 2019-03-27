@@ -14,7 +14,7 @@
 
 Matrix::Matrix(int size) {
 	this->size = size;
-	matrix = new double[size * size];
+	matrix = new float[size * size];
 	sum = 0;
 }
 
@@ -23,7 +23,7 @@ Matrix::Matrix(ifstream fs) {
 	fs >> ss;
 	size = ss;
 	sum = 0;
-	matrix = new double[size * size];
+	matrix = new float[size * size];
 	for (int i = 0; i < size; ++i) {
 		for (int j = 0; j < size; ++j) {
 			fs >> matrix[i * size + j];
@@ -33,11 +33,11 @@ Matrix::Matrix(ifstream fs) {
 }
 
 void Matrix::Randomize() {
-	double f;
+	float f;
 	sum = 0;
 	for (int i = 0; i < size; ++i) {
 		for (int j = i + 1; j < size; ++j) {
-			f = rand() / (double) RAND_MAX;
+			f = rand() / (float) RAND_MAX;
 			f = f * 2 - 1;
 			matrix[i * size + j] = f;
 			sum += matrix[i * size + j];
@@ -66,7 +66,7 @@ string Matrix::getMatrix() {
 void Matrix::buildMat(ifstream ifs) {
 	sum = 0;
 	ifs >> size;
-	matrix = new double[size * size];
+	matrix = new float[size * size];
 	int i, j, val, edges;
 	ifs >> edges;
 	for (int var = 0; var < edges; ++var) {
@@ -78,10 +78,10 @@ void Matrix::buildMat(ifstream ifs) {
 	}
 }
 
-double Matrix::getSum() {
+float Matrix::getSum() {
 	return sum;
 }
 
-double* Matrix::getArray() {
+float* Matrix::getArray() {
 	return matrix;
 }

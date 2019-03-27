@@ -14,8 +14,8 @@ using namespace std;
 class Matrix {
 private:
 	int size;
-	double* matrix;
-	double sum;
+	float* matrix;
+	float sum;
 public:
 	Matrix(int size);
 	Matrix(ifstream fs);
@@ -23,8 +23,8 @@ public:
 	void Randomize();
 	string getMatrix();
 	int getSize();
-	double* getArray();
-	double getSum();
+	float* getArray();
+	float getSum();
 };
 
 #endif /* MATRIX_H_ */

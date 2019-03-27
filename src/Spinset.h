@@ -15,14 +15,14 @@ using namespace std;
 class Spinset {
 private:
 	int size;
-	double* spins;
+	float* spins;
 public:
-	double temp;
+	float temp;
 	Spinset(int size);
 	void Randomize(bool bin);
-	void SetSpin(int index, double value);
+	void SetSpin(int index, float value);
 	const string getSpins();
-	const double* getArray();
+	const float* getArray();
 };
 
 #endif /* SPINSET_H_ */
