@@ -15,9 +15,9 @@
 using namespace std;
 using namespace FilesystemProvider;
 
-int StartupUtils::grabInteractive(long double& startRef, long double& endRef, long double& stepRef,
-		double& pStepRef, Matrix& modelRef, int& blockCountRef, bool& randRef,
-		string& wDirRef) {
+int StartupUtils::grabInteractive(long double& startRef, long double& endRef,
+		long double& stepRef, double& pStepRef, Matrix& modelRef,
+		int& blockCountRef, bool& randRef, string& wDirRef) {
 	cout << "Do you want to init randomizer? (yes/no) ";
 	string resp = "";
 	cin >> resp;
@@ -64,11 +64,11 @@ int StartupUtils::grabInteractive(long double& startRef, long double& endRef, lo
 		pStepRef = stod(resp);
 	cout << "CUDA block count?" << endl;
 	if (blockCountRef != -1)
-			cout << "Current value: " << blockCountRef << ", -c to leave unchanged."
-					<< endl;
-		cin >> resp;
-		if (resp != "-c")
-			blockCountRef = stod(resp);
+		cout << "Current value: " << blockCountRef << ", -c to leave unchanged."
+				<< endl;
+	cin >> resp;
+	if (resp != "-c")
+		blockCountRef = stod(resp);
 	cout << "Matrix file path? (-r to randomize, -b to build)" << endl;
 	cin >> resp;
 	int ocode = 0;
@@ -78,11 +78,11 @@ int StartupUtils::grabInteractive(long double& startRef, long double& endRef, lo
 		cin >> msize;
 		modelRef = Matrix(msize);
 		ocode = 1;
-	} else if(resp == "-b" || resp == "-B"){
+	} else if (resp == "-b" || resp == "-B") {
 		cout << "Matrix builder file path?" << endl;
 		cin >> resp;
 		modelRef.buildMat(ifstream(resp));
-	}else
+	} else
 		modelRef = Matrix(ifstream(resp));
 	if (mkDir) {
 		ostringstream oss;
@@ -96,9 +96,9 @@ int StartupUtils::grabInteractive(long double& startRef, long double& endRef, lo
 	return ocode;
 }
 
-int StartupUtils::grabFromString(string inp, long double& startRef, long double& endRef,
-		long double& stepRef, double& pStepRef, Matrix& modelRef, int& blockCountRef,
-		bool& randRef, string& wDirRef) {
+int StartupUtils::grabFromString(string inp, long double& startRef,
+		long double& endRef, long double& stepRef, double& pStepRef,
+		Matrix& modelRef, int& blockCountRef, bool& randRef, string& wDirRef) {
 	istringstream ifs = istringstream(inp);
 	string buf;
 	bool mkDir = false;
@@ -136,7 +136,6 @@ int StartupUtils::grabFromString(string inp, long double& startRef, long double&
 				mkDir = false;
 		} else if (buf == "&mloc" || buf == "&ml" || buf == "&ml_b"
 				|| buf == "&mloc_b") {
-			needSave = 0;
 			string loc;
 			ifs >> loc;
 			ifstream mfs;
@@ -147,10 +146,13 @@ int StartupUtils::grabFromString(string inp, long double& startRef, long double&
 						<< endl;
 				return -1;
 			}
-			if (buf == "&ml_b" || buf == "&mloc_b")
+			if (buf == "&ml_b" || buf == "&mloc_b") {
 				modelRef.buildMat(ifstream(loc));
-			else
+				needSave = 2;
+			} else {
 				modelRef = Matrix(ifstream(loc));
+				needSave = 0;
+			}
 		} else if (buf == "&ird" || buf == "&irand" || buf == "&initrd"
 				|| buf == "&initrand") {
 			string buf;
@@ -160,8 +162,8 @@ int StartupUtils::grabFromString(string inp, long double& startRef, long double&
 			else if (buf == "false" || buf == "f")
 				randRef = false;
 			else {
-				cout << "Error 04 while parsing:\n"
-						<< "Bad word after &irand: " << buf << endl;
+				cout << "Error 04 while parsing:\n" << "Bad word after &irand: "
+						<< buf << endl;
 				return -1;
 			}
 		} else if (buf[0] == '#') {

@@ -1,5 +1,5 @@
 #define VERSION 4.6
-#define BUILD "87.3.1"
+#define BUILD "87.3.2"
 
 #include <stdio.h>
 #include <iostream>
@@ -47,7 +47,7 @@ string composeProgressbar(float state, int pbLen) {
 	return os.str();
 }
 
-string getTimeString(float time) {
+string getTimeString(double time) {
 	if (time <= 0)
 		return "0 h 0 m 0 s";
 	ostringstream oss;
@@ -133,8 +133,9 @@ int main(int argc, char* argv[]) {
 	ofstream logWriter;
 	bool displayData = false;
 
-	//Try parse config file
-	cout << "Trying to parse init config... " << endl;
+	//Try to parse config file
+	cout << "Trying to parse init config... \n"
+			"Make sure it is located in current working directory and is called \"config\"!" << endl;
 	try {
 		ostringstream oss;
 		oss
@@ -150,16 +151,18 @@ int main(int argc, char* argv[]) {
 		cout << "Failed. \nCheck config file existence." << endl;
 	}
 
+	//Try to parse arguments
 	if (argc >= 2) {
-		//Acquire init config from config
 		cout << "Trying to parse arguments... " << endl;
 		ostringstream argParams;
 		for (int i = 1; i < argc; i++) {
 			argParams << argv[i] << " ";
 		}
-		StartupUtils::grabFromString(argParams.str(), ref(dTemp), ref(upTemp),
-				ref(step), ref(pullStep), ref(matrix), ref(blockCount),
-				ref(doRand), ref(dir));
+		int k = StartupUtils::grabFromString(argParams.str(), ref(dTemp),
+				ref(upTemp), ref(step), ref(pullStep), ref(matrix),
+				ref(blockCount), ref(doRand), ref(dir));
+		if (k > 0)
+			nSave = k;
 		cout << "Done." << endl;
 	}
 
@@ -168,9 +171,9 @@ int main(int argc, char* argv[]) {
 		cout
 				<< "Not all init parameters were assigned. Fallback to interactive mode."
 				<< endl;
-		nSave = StartupUtils::grabInteractive(ref(dTemp), ref(upTemp), ref(step),
-				ref(pullStep), ref(matrix), ref(blockCount), ref(doRand),
-				ref(dir));
+		nSave = StartupUtils::grabInteractive(ref(dTemp), ref(upTemp),
+				ref(step), ref(pullStep), ref(matrix), ref(blockCount),
+				ref(doRand), ref(dir));
 		displayData = true;
 	}
 
@@ -185,13 +188,15 @@ int main(int argc, char* argv[]) {
 
 	if (nSave == 1) { //Export matrix if needed
 		matrix.Randomize();
+		logWriter << "new matrix, size " << matrix.getSize() << endl;
+	} else
+		logWriter << "existing matrix, size " << matrix.getSize() << endl;
+	if (nSave == 1 || nSave == 2) {
 		fstream fs;
 		fs.open(ComposeFilename(dir, "mat", ".txt"), ios::out);
 		fs << matrix.getMatrix();
 		fs.flush();
-		logWriter << "new matrix, size " << matrix.getSize() << endl;
-	} else
-		logWriter << "existing matrix, size " << matrix.getSize() << endl;
+	}
 
 // Init plot, clock, CUDA, CLI
 	FilesystemProvider::makeFile(ComposeFilename(dir, "img", ".png"));
