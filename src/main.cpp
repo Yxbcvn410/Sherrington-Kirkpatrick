@@ -133,38 +133,34 @@ int main(int argc, char* argv[]) {
 	ofstream logWriter;
 	bool displayData = false;
 
-	//Try to parse config file
+	//Append config file
 	cout << "Trying to parse init config... \n"
 			"Make sure it is located in current working directory and is called \"config\"!" << endl;
+	ostringstream oss;
 	try {
-		ostringstream oss;
 		oss
 				<< ifstream(
 						FilesystemProvider::getCurrentWorkingDirectory()
 								+ "/config").rdbuf();
-
-		nSave = StartupUtils::grabFromString(oss.str(), ref(dTemp), ref(upTemp),
-				ref(step), ref(pullStep), ref(matrix), ref(blockCount),
-				ref(doRand), ref(dir));
 		cout << "Done." << endl;
 	} catch (exception & e) {
 		cout << "Failed. \nCheck config file existence." << endl;
 	}
 
-	//Try to parse arguments
+	//Append arguments
 	if (argc >= 2) {
 		cout << "Trying to parse arguments... " << endl;
-		ostringstream argParams;
 		for (int i = 1; i < argc; i++) {
-			argParams << argv[i] << " ";
+			oss << argv[i] << " ";
 		}
-		int k = StartupUtils::grabFromString(argParams.str(), ref(dTemp),
-				ref(upTemp), ref(step), ref(pullStep), ref(matrix),
-				ref(blockCount), ref(doRand), ref(dir));
-		if (k > 0)
-			nSave = k;
 		cout << "Done." << endl;
 	}
+
+	cout << "Parsing..." << endl;
+	nSave = StartupUtils::grabFromString(oss.str(), ref(dTemp), ref(upTemp),
+			ref(step), ref(pullStep), ref(matrix), ref(blockCount),
+			ref(doRand), ref(dir));
+	cout << "Complete." << endl;
 
 	if (dir == "" || upTemp == -1 || blockCount == -1
 			|| matrix.getSize() == 2) {

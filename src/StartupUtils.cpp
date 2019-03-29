@@ -27,12 +27,15 @@ int StartupUtils::grabInteractive(long double& startRef, long double& endRef,
 		randRef = true;
 	} else
 		cout << "Randomizer was not initialized" << "\n";
-	cout << "Working dir? (-a to auto-create in current working directory)\n"
-			<< getCurrentWorkingDirectory() << endl;
-	cin >> wDirRef;
-	if (wDirRef == "-a" || wDirRef == "-A") {
-		mkDir = true;
-		wDirRef = "";
+	if (wDirRef == "") {
+		cout
+				<< "Working dir? (-a to auto-create in current working directory)\n"
+				<< getCurrentWorkingDirectory() << endl;
+		cin >> wDirRef;
+		if (wDirRef == "-a" || wDirRef == "-A") {
+			mkDir = true;
+			wDirRef = "";
+		}
 	}
 	cout << "Lower temperature limit?" << endl;
 	if (startRef != -1)
