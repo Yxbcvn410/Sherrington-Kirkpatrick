@@ -75,7 +75,7 @@ __global__ void allocHamiltonian(float* devMat, float* devSpins, int index,
 	while (wIndex < size * size) {
 		i = wIndex % size;
 		j = (int) (wIndex / size);
-		energyTempor[wIndex] = (double)(devSpins[i + index * size]
+		energyTempor[wIndex] = (double) (devSpins[i + index * size]
 				* devSpins[j + index * size] * devMat[wIndex]);
 		wIndex = wIndex + blockDim.x;
 	}
@@ -121,9 +121,8 @@ Spinset CudaOperator::extractSpinset(int index) {
 	return outSpins;
 }
 
-__global__ void cudaKernelPull(float* mat, float* spins, int size,
-		float* temp, float tempStep, float* meanFieldElements,
-		float* diff) {
+__global__ void cudaKernelPull(float* mat, float* spins, int size, float* temp,
+		float tempStep, float* meanFieldElements, float* diff) {
 	int blockId = blockIdx.x;
 	int thrId = threadIdx.x;
 
@@ -146,14 +145,12 @@ __global__ void cudaKernelPull(float* mat, float* spins, int size,
 				__syncthreads();
 				int wIndex = thrId;
 				while (wIndex < size) {
-					if (wIndex > spinId)
-						meanFieldElements[wIndex + blockId * size] = mat[spinId
-								* size + wIndex]
-								* spins[wIndex + blockId * size];
-					else
-						meanFieldElements[wIndex + blockId * size] = mat[wIndex
-								* size + spinId]
-								* spins[wIndex + blockId * size];
+					meanFieldElements[wIndex + blockId * size] =
+							(wIndex > spinId) ?
+									mat[spinId * size + wIndex]
+											* spins[wIndex + blockId * size] :
+									mat[wIndex * size + spinId]
+											* spins[wIndex + blockId * size];
 					wIndex = wIndex + blockDim.x;
 				}
 				__syncthreads();
@@ -196,7 +193,7 @@ __global__ void cudaKernelPull(float* mat, float* spins, int size,
 			}
 
 			__syncthreads();
-			if (diff[blockId] < 0.000001)
+			if (diff[blockId] < 0.0001f)
 				flag = false; // diff link is same for all threads; Abort stabilization if diff is appropriate
 		}
 	}

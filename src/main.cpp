@@ -1,5 +1,5 @@
 #define VERSION 4.6
-#define BUILD "87.3.2"
+#define BUILD "87.4"
 
 #include <stdio.h>
 #include <iostream>
@@ -134,8 +134,10 @@ int main(int argc, char* argv[]) {
 	bool displayData = false;
 
 	//Append config file
-	cout << "Trying to parse init config... \n"
-			"Make sure it is located in current working directory and is called \"config\"!" << endl;
+	cout
+			<< "Trying to parse init config... \n"
+					"Make sure it is located in current working directory and is called \"config\"!"
+			<< endl;
 	ostringstream oss;
 	try {
 		oss
@@ -158,8 +160,8 @@ int main(int argc, char* argv[]) {
 
 	cout << "Parsing..." << endl;
 	nSave = StartupUtils::grabFromString(oss.str(), ref(dTemp), ref(upTemp),
-			ref(step), ref(pullStep), ref(matrix), ref(blockCount),
-			ref(doRand), ref(dir));
+			ref(step), ref(pullStep), ref(matrix), ref(blockCount), ref(doRand),
+			ref(dir));
 	cout << "Complete." << endl;
 
 	if (dir == "" || upTemp == -1 || blockCount == -1
@@ -226,8 +228,9 @@ int main(int argc, char* argv[]) {
 			spins.temp += step;
 		}
 		logWriter << "[" << getTimeString(time(NULL) - start) << "] "
-				<< "Spinset loading complete. Starting CUDA kernel function..."
-				<< endl;
+				<< "Spinset loading complete. Starting CUDA kernel function on range from "
+				<< spins.temp - step * blockCount << " to " << spins.temp
+				<< ", " << blockCount << " blocks." << endl;
 		op.cudaPull(pullStep);
 		logWriter << "[" << getTimeString(time(NULL) - start) << "] "
 				<< "Kernel returned success. Acquiring data..." << endl;
@@ -256,11 +259,10 @@ int main(int argc, char* argv[]) {
 		hamiltonianWriter.flush();
 		maxcutWriter.flush();
 		saveMinData(dir, matrix, dTemp, spins.temp, step, blockCount);
-	} while (spins.temp + step * 0.001 < upTemp);
+	} while (spins.temp + step * 0.1 < upTemp);
 
 // Disable output && write data to log
 	progress = -1;
 	logWriter << "Calculation complete in "
 			<< getTimeString(difftime(time(NULL), start)) << endl;
-	saveMinData(dir, matrix, dTemp, upTemp, step, blockCount);
 }
