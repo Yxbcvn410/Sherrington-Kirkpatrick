@@ -1,5 +1,5 @@
 #define VERSION 4.6
-#define BUILD "87.4"
+#define BUILD 93
 
 #include <stdio.h>
 #include <iostream>
@@ -128,14 +128,14 @@ int main(int argc, char* argv[]) {
 	long double step = 0.001;
 	double pullStep = 1;
 	int blockCount = -1;
-	int nSave = -2;
-	bool doRand = true;
+	int exitCode = -2;
 	ofstream logWriter;
-	bool displayData = false;
+	bool cliActive = false;
+	float minimDiff = 0.01;
 
 	//Append config file
 	cout
-			<< "Trying to parse init config... \n"
+			<< "Appending init config... \n"
 					"Make sure it is located in current working directory and is called \"config\"!"
 			<< endl;
 	ostringstream oss;
@@ -151,7 +151,7 @@ int main(int argc, char* argv[]) {
 
 	//Append arguments
 	if (argc >= 2) {
-		cout << "Trying to parse arguments... " << endl;
+		cout << "Appending arguments... " << endl;
 		for (int i = 1; i < argc; i++) {
 			oss << argv[i] << " ";
 		}
@@ -159,42 +159,31 @@ int main(int argc, char* argv[]) {
 	}
 
 	cout << "Parsing..." << endl;
-	nSave = StartupUtils::grabFromString(oss.str(), ref(dTemp), ref(upTemp),
-			ref(step), ref(pullStep), ref(matrix), ref(blockCount), ref(doRand),
-			ref(dir));
+	exitCode = StartupUtils::grabFromString(oss.str(), ref(dTemp), ref(upTemp),
+			ref(step), ref(pullStep), ref(matrix), ref(blockCount), ref(dir),
+			ref(cliActive), ref(minimDiff));
 	cout << "Complete." << endl;
 
-	if (dir == "" || upTemp == -1 || blockCount == -1
-			|| matrix.getSize() == 2) {
+	if (exitCode != 0) {
 		cout
 				<< "Not all init parameters were assigned. Fallback to interactive mode."
 				<< endl;
-		nSave = StartupUtils::grabInteractive(ref(dTemp), ref(upTemp),
+		exitCode = StartupUtils::grabInteractive(ref(dTemp), ref(upTemp),
 				ref(step), ref(pullStep), ref(matrix), ref(blockCount),
-				ref(doRand), ref(dir));
-		displayData = true;
+				ref(dir), ref(cliActive), ref(minimDiff));
 	}
 
-	if (!doRand)
-		cout << "WARNING: Random generator was not initialized." << endl;
-	else
-		srand(time(0));
+	if(!FileExists(dir))
+		makeDirectory(dir);
 
 	logWriter.open(dir + "/log.txt", ios::out | ios::app);
 
-	logWriter << "Starting with ";
+	logWriter << "Matrix loaded, size " << matrix.getSize() << endl;
 
-	if (nSave == 1) { //Export matrix if needed
-		matrix.Randomize();
-		logWriter << "new matrix, size " << matrix.getSize() << endl;
-	} else
-		logWriter << "existing matrix, size " << matrix.getSize() << endl;
-	if (nSave == 1 || nSave == 2) {
-		fstream fs;
-		fs.open(ComposeFilename(dir, "mat", ".txt"), ios::out);
-		fs << matrix.getMatrix();
-		fs.flush();
-	}
+	fstream fs;
+	fs.open(ComposeFilename(dir, "mat", ".txt"), ios::out);
+	fs << matrix.getMatrix();
+	fs.flush();
 
 // Init plot, clock, CUDA, CLI
 	FilesystemProvider::makeFile(ComposeFilename(dir, "img", ".png"));
@@ -209,9 +198,9 @@ int main(int argc, char* argv[]) {
 	ofstream maxcutWriter(ComposeFilename(dir, "data_maxcut", ".txt"));
 	maxcutWriter << " " << endl;
 
-	CudaOperator op = CudaOperator(matrix, blockCount);
+	CudaOperator op = CudaOperator(matrix, blockCount, minimDiff);
 	start = time(NULL);
-	if (displayData) {
+	if (cliActive) {
 		thread th(CLIControl);
 		th.detach();
 	}

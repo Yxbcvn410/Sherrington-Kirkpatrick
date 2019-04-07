@@ -14,7 +14,8 @@ void checkError(cudaError_t err, string arg = "") {
 	}
 }
 
-CudaOperator::CudaOperator(Matrix matrix, int blockCnt) {
+CudaOperator::CudaOperator(Matrix matrix, int blockCnt, float _minDiff) {
+	minDiff = _minDiff;
 	// Set pointers to null
 	devSpins = NULL;
 	devMat = NULL;
@@ -122,14 +123,12 @@ Spinset CudaOperator::extractSpinset(int index) {
 }
 
 __global__ void cudaKernelPull(float* mat, float* spins, int size, float* temp,
-		float tempStep, float* meanFieldElements, float* diff) {
+		float tempStep, float* meanFieldElements, float* diff, float minDiff) {
 	int blockId = blockIdx.x;
 	int thrId = threadIdx.x;
 
 	bool flag;
-	bool firstrun = true;
-	while (temp[blockId] >= 0 || firstrun) {
-		firstrun = false;
+	do {
 		//Lessen temperature
 		if (thrId == 0)
 			temp[blockId] = temp[blockId] - tempStep;
@@ -137,20 +136,20 @@ __global__ void cudaKernelPull(float* mat, float* spins, int size, float* temp,
 		flag = true;
 		while (flag) {
 			__syncthreads();
-			//Iterate on all spins
+			// Iterate on all spins
 			if (thrId == 0)
 				diff[blockId] = 0;
 
 			for (int spinId = 0; spinId < size; ++spinId) {
 				__syncthreads();
+
+				// Transitional value assignment
 				int wIndex = thrId;
 				while (wIndex < size) {
 					meanFieldElements[wIndex + blockId * size] =
-							(wIndex > spinId) ?
-									mat[spinId * size + wIndex]
-											* spins[wIndex + blockId * size] :
-									mat[wIndex * size + spinId]
-											* spins[wIndex + blockId * size];
+							spins[wIndex + blockId * size] * ((wIndex > spinId) ?
+									mat[spinId * size + wIndex] :
+									mat[wIndex * size + spinId]);
 					wIndex = wIndex + blockDim.x;
 				}
 				__syncthreads();
@@ -193,15 +192,15 @@ __global__ void cudaKernelPull(float* mat, float* spins, int size, float* temp,
 			}
 
 			__syncthreads();
-			if (diff[blockId] < 0.0001f)
+			if (diff[blockId] < minDiff)
 				flag = false; // diff link is same for all threads; Abort stabilization if diff is appropriate
 		}
-	}
+	} while (temp[blockId] >= 0);
 }
 
 void CudaOperator::cudaPull(float pStep) {
 	cudaKernelPull<<<blockCount, blockSize>>>(devMat, devSpins, size, devTemp,
-			pStep, meanFieldElems, delta);
+			pStep, meanFieldElems, delta, minDiff);
 	cudaDeviceSynchronize();
 	cudaError_t err = cudaGetLastError();
 	checkError(err, "Kernel at cudaPull");

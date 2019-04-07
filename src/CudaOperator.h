@@ -24,8 +24,9 @@ private:
 	int size;
 	int blockSize;
 	int blockCount;
+	float minDiff;
 public:
-	CudaOperator(Matrix matrix, int blockCount);
+	CudaOperator(Matrix matrix, int blockCount, float _minDiff);
 	void cudaLoadSpinset(Spinset spinset, int index);
 	void cudaPull(float pStep);
 	double extractHamiltonian(int index);
