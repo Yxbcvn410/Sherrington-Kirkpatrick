@@ -16,7 +16,7 @@ using namespace std;
 using namespace FilesystemProvider;
 
 int StartupUtils::grabInteractive(long double& startRef, long double& endRef,
-		long double& stepRef, double& pStepRef, Matrix& modelRef,
+		long double& stepRef, double& pStepRef, Matrix& matrixRef,
 		int& blockCountRef, string& wDirRef, bool& cliRef, float& minDiffRef) {
 	cliRef = true;
 	cout << "Do you want to init randomizer? (yes/no) ";
@@ -32,14 +32,6 @@ int StartupUtils::grabInteractive(long double& startRef, long double& endRef,
 				<< "Working dir? (-a to auto-create in current working directory)\n"
 				<< getCurrentWorkingDirectory() << endl;
 		cin >> wDirRef;
-		if (wDirRef == "-a" || wDirRef == "-A") {
-			ostringstream oss;
-			oss << "calc" << modelRef.getSize() << "_";
-			int dirIndex = FreeFileIndex(getCurrentWorkingDirectory(),
-					oss.str(), "", false);
-			oss << dirIndex;
-			wDirRef = getCurrentWorkingDirectory() + "/" + oss.str();
-		}
 	}
 	cout << "Lower temperature limit?" << endl;
 	if (startRef != -1)
@@ -89,19 +81,19 @@ int StartupUtils::grabInteractive(long double& startRef, long double& endRef,
 		int msize;
 		cout << "Matrix size?" << endl;
 		cin >> msize;
-		modelRef = Matrix(msize);
+		matrixRef = Matrix(msize);
 	} else if (resp == "-b" || resp == "-B") {
 		cout << "Matrix builder file path?" << endl;
 		cin >> resp;
-		modelRef.buildMat(ifstream(resp));
+		matrixRef.buildMat(ifstream(resp));
 	} else
-		modelRef = Matrix(ifstream(resp));
+		matrixRef = Matrix(ifstream(resp));
 	return 0;
 }
 
 int StartupUtils::grabFromString(string inp, long double& startRef,
 		long double& endRef, long double& stepRef, double& pStepRef,
-		Matrix& modelRef, int& blockCountRef, string& wDirRef, bool& cliRef,
+		Matrix& matrixRef, int& blockCountRef, string& wDirRef, bool& cliRef,
 		float& minDiffRef) {
 	istringstream ifs = istringstream(inp);
 	string buffer;
@@ -116,7 +108,7 @@ int StartupUtils::grabFromString(string inp, long double& startRef,
 		} else if (buffer == "%step") {
 			ifs >> stepRef;
 			stepDefinedAsCount = false;
-		} else if (buffer == "%md") {
+		} else if (buffer == "%md" || buffer == "%mdiff" || buffer == "%mindiff") {
 			ifs >> minDiffRef;
 		} else if (buffer == "%c" || buffer == "%count") {
 			ifs >> pCount;
@@ -128,18 +120,10 @@ int StartupUtils::grabFromString(string inp, long double& startRef,
 		} else if (buffer == "%msize" || buffer == "%ms") {
 			int size;
 			ifs >> size;
-			modelRef = Matrix(size);
-			modelRef.Randomize();
+			matrixRef = Matrix(size);
+			matrixRef.Randomize();
 		} else if (buffer == "%wdir" || buffer == "%wd" || buffer == "%dir") {
 			ifs >> wDirRef;
-			if (wDirRef == "-a" || wDirRef == "-A") {
-				ostringstream oss;
-				oss << "calc" << modelRef.getSize() << "_";
-				int dirIndex = FreeFileIndex(getCurrentWorkingDirectory(),
-						oss.str(), "", false);
-				oss << dirIndex;
-				wDirRef = getCurrentWorkingDirectory() + "/" + oss.str();
-			}
 		} else if (buffer == "%mloc" || buffer == "%ml" || buffer == "%ml_b"
 				|| buffer == "%mloc_b") {
 			string loc;
@@ -151,9 +135,9 @@ int StartupUtils::grabFromString(string inp, long double& startRef,
 						<< "No matrix file found at specified location, ignored."
 						<< endl;
 			} else if (buffer == "%ml_b" || buffer == "%mloc_b") {
-				modelRef.buildMat(ifstream(loc));
+				matrixRef.buildMat(ifstream(loc));
 			} else {
-				modelRef = Matrix(ifstream(loc));
+				matrixRef = Matrix(ifstream(loc));
 			}
 		} else if (buffer == "%ird" || buffer == "%irand" || buffer == "%initrd"
 				|| buffer == "%initrand") {
@@ -208,7 +192,7 @@ int StartupUtils::grabFromString(string inp, long double& startRef,
 				<< endl;
 		exitCode = 1;
 	}
-	if (modelRef.getSize() == 2) {
+	if (matrixRef.getSize() == 2) {
 		cout << "InputParser: WARNING: " << "Matrix not defined" << endl;
 		exitCode = 1;
 	}

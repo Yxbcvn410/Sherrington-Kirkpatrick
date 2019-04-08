@@ -1,5 +1,5 @@
 #define VERSION 4.6
-#define BUILD 93
+#define BUILD 94
 
 #include <stdio.h>
 #include <iostream>
@@ -173,6 +173,14 @@ int main(int argc, char* argv[]) {
 				ref(dir), ref(cliActive), ref(minimDiff));
 	}
 
+	if (dir == "-a" || dir == "-A") {
+		ostringstream oss;
+		oss << "calc" << matrix.getSize() << "_";
+		int dirIndex = FreeFileIndex(getCurrentWorkingDirectory(),
+				oss.str(), "", false);
+		oss << dirIndex;
+		dir = getCurrentWorkingDirectory() + "/" + oss.str();
+	}
 	if(!FileExists(dir))
 		makeDirectory(dir);
 
