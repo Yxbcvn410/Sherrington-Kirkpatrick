@@ -12,10 +12,10 @@
 namespace StartupUtils {
 int grabFromString(string inp, long double& startRef, long double& endRef,
 		long double& stepRef, double& pStepRef, Matrix& matrixRef,
-		int& blockCountRef, string& wDirRef, bool& cliRef, float& minDiffRef);
+		int& blockCountRef, string& wDirRef, bool& cliRef, float& minDiffRef, bool& appendConfigRef);
 int grabInteractive(long double& startRef, long double& endRef,
 		long double& stepRef, double& pStepRef, Matrix& matrixRef,
-		int& blockCountRef, string& wDirRef, bool& cliRef, float& minDiffRef);
+		int& blockCountRef, string& wDirRef, bool& cliRef, float& minDiffRef, bool& appendConfigRef);
 }
 
 #endif /* STARTUPUTILS_H_ */

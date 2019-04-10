@@ -17,7 +17,7 @@ using namespace FilesystemProvider;
 
 int StartupUtils::grabInteractive(long double& startRef, long double& endRef,
 		long double& stepRef, double& pStepRef, Matrix& matrixRef,
-		int& blockCountRef, string& wDirRef, bool& cliRef, float& minDiffRef) {
+		int& blockCountRef, string& wDirRef, bool& cliRef, float& minDiffRef, bool& appendConfigRef) {
 	cliRef = true;
 	cout << "Do you want to init randomizer? (yes/no) ";
 	string resp = "";
@@ -88,13 +88,19 @@ int StartupUtils::grabInteractive(long double& startRef, long double& endRef,
 		matrixRef.buildMat(ifstream(resp));
 	} else
 		matrixRef = Matrix(ifstream(resp));
+	cout << "Do you want to append new temperature ranges to config after session?" << endl;
+	cin >> resp;
+	if (resp == "yes" || resp == "y") {
+			appendConfigRef = true;
+		} else
+			appendConfigRef = false;
 	return 0;
 }
 
 int StartupUtils::grabFromString(string inp, long double& startRef,
 		long double& endRef, long double& stepRef, double& pStepRef,
 		Matrix& matrixRef, int& blockCountRef, string& wDirRef, bool& cliRef,
-		float& minDiffRef) {
+		float& minDiffRef, bool& appendConfigRef) {
 	istringstream ifs = istringstream(inp);
 	string buffer;
 	bool stepDefinedAsCount = false;
@@ -153,22 +159,30 @@ int StartupUtils::grabFromString(string inp, long double& startRef,
 				return -1;
 			}
 		} else if (buffer == "%cli") {
-			string buf;
-			ifs >> buf;
-			if (buf == "true" || buf == "t")
+			ifs >> buffer;
+			if (buffer == "true" || buffer == "t")
 				cliRef = true;
-			else if (buf == "false" || buf == "f")
+			else if (buffer == "false" || buffer == "f")
 				cliRef = false;
 			else {
 				cout << "InputParser: ERROR: "
-						<< "Bad word after %cli: " << buf << endl;
+						<< "Bad word after %cli: " << buffer << endl;
 				return -1;
 			}
-		}
-
+		}	else if (buffer == "%ac" || buffer == "%appconf") {
+					ifs >> buffer;
+					if (buffer == "true" || buffer == "t")
+						appendConfigRef = true;
+					else if (buffer == "false" || buffer == "f")
+						appendConfigRef = false;
+					else {
+						cout << "InputParser: ERROR: "
+								<< "Bad word after %appconf: " << buffer << endl;
+						return -1;
+					}
+				}
 		else if (buffer[0] == '#') {
-			string buf;
-			getline(ifs, buf);
+			getline(ifs, buffer);
 		} else {
 			cout << "InputParser: WARNING: " << "Unknown word: \""
 					<< buffer << "\", ignored" << endl;

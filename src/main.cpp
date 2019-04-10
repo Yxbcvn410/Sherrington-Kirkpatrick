@@ -1,5 +1,5 @@
-#define VERSION 4.6
-#define BUILD 94
+#define VERSION 4.7
+#define BUILD 96
 
 #include <stdio.h>
 #include <iostream>
@@ -23,7 +23,8 @@ using namespace FilesystemProvider;
 double minHamiltonian;
 int minCount;
 string minSpins;
-float minTemp;
+float lTemp;
+float hTemp;
 long double hamSum;
 
 float progress;
@@ -98,8 +99,7 @@ void saveMinData(string dir, Matrix matrix, long double dTemp,
 	spinWriter << "Minimum hamiltonian: " << minHamiltonian << endl;
 	spinWriter << "Maximum cut: " << (matrix.getSum() - minHamiltonian) / 2.0
 			<< endl;
-	spinWriter << "Hit count: " << minCount << endl;
-	spinWriter << "Hit temperature: " << minTemp << endl;
+	spinWriter << "Hit count: " << minCount << ", ranging from " << lTemp << " to " << hTemp << endl;
 	spinWriter << "Middle hamiltonian: " << hamSum * step / (upTemp - dTemp)
 			<< endl;
 	spinWriter << "Middle max-cut: "
@@ -132,6 +132,7 @@ int main(int argc, char* argv[]) {
 	ofstream logWriter;
 	bool cliActive = false;
 	float minimDiff = 0.01;
+	bool appendConfig = false;
 
 	//Append config file
 	cout
@@ -161,7 +162,7 @@ int main(int argc, char* argv[]) {
 	cout << "Parsing..." << endl;
 	exitCode = StartupUtils::grabFromString(oss.str(), ref(dTemp), ref(upTemp),
 			ref(step), ref(pullStep), ref(matrix), ref(blockCount), ref(dir),
-			ref(cliActive), ref(minimDiff));
+			ref(cliActive), ref(minimDiff), ref(appendConfig));
 	cout << "Complete." << endl;
 
 	if (exitCode != 0) {
@@ -170,7 +171,7 @@ int main(int argc, char* argv[]) {
 				<< endl;
 		exitCode = StartupUtils::grabInteractive(ref(dTemp), ref(upTemp),
 				ref(step), ref(pullStep), ref(matrix), ref(blockCount),
-				ref(dir), ref(cliActive), ref(minimDiff));
+				ref(dir), ref(cliActive), ref(minimDiff), ref(appendConfig));
 	}
 
 	if (dir == "-a" || dir == "-A") {
@@ -217,6 +218,7 @@ int main(int argc, char* argv[]) {
 	Spinset spins(matrix.getSize());
 	spins.temp = dTemp;
 	do {
+		float tmptmp = spins.temp;
 		logWriter << "[" << getTimeString(time(NULL) - start) << "] "
 				<< "Starting pull session. Loading spinsets..." << endl;
 		for (int i = 0; i < blockCount; i++) {
@@ -231,7 +233,7 @@ int main(int argc, char* argv[]) {
 		op.cudaPull(pullStep);
 		logWriter << "[" << getTimeString(time(NULL) - start) << "] "
 				<< "Kernel returned success. Acquiring data..." << endl;
-		spins.temp -= step * blockCount;
+		spins.temp = tmptmp;
 		for (int i = 0; i < blockCount; i++) {
 			if (spins.temp >= upTemp)
 				continue;
@@ -241,9 +243,12 @@ int main(int argc, char* argv[]) {
 				minHamiltonian = nrg;
 				minCount = 1;
 				minSpins = op.extractSpinset(i).getSpins();
-				minTemp = spins.temp;
-			} else if (nrg == minHamiltonian)
+				lTemp = spins.temp;
+				hTemp = spins.temp;
+			} else if (nrg == minHamiltonian){
+				hTemp = spins.temp;
 				minCount++;
+			}
 			hamiltonianWriter << fabs(spins.temp) << "\t" << nrg << "\n";
 			maxcutWriter << (matrix.getSum() - nrg) / 2.0 << ", \n";
 			spins.temp += step;
@@ -262,4 +267,9 @@ int main(int argc, char* argv[]) {
 	progress = -1;
 	logWriter << "Calculation complete in "
 			<< getTimeString(difftime(time(NULL), start)) << endl;
+	if(appendConfig){
+		ofstream config_ofs((FilesystemProvider::getCurrentWorkingDirectory()+"/config").c_str(), ios::out | ios::app);
+		config_ofs << " \%start " << floor(lTemp * 100) / 100.0f << endl << " \%end " << ceil(hTemp * 100 + 1) / 100.0f << endl;
+		cout << "New temperature bounds appended to config";
+	}
 }
