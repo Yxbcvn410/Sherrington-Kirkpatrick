@@ -18,7 +18,7 @@ private:
 	float* devMat = NULL; //Matrix
 	float* devTemp = NULL; //Temperature
 	float* meanFieldElems = NULL; //Temporary storage for force computation
-	float* delta = NULL;
+	bool* continueIteration = NULL;
 	double* energyElems = NULL; //Temporary storage for energy computation
 	//CPU variables
 	int size;

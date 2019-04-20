@@ -21,7 +21,7 @@ CudaOperator::CudaOperator(Matrix matrix, int blockCnt, float _minDiff) {
 	devMat = NULL;
 	meanFieldElems = NULL;
 	energyElems = NULL;
-	delta = NULL;
+	continueIteration = NULL;
 	devTemp = NULL;
 
 	size = matrix.getSize();
@@ -35,12 +35,12 @@ CudaOperator::CudaOperator(Matrix matrix, int blockCnt, float _minDiff) {
 	// Allocate memory for pointers at GPU
 	checkError(
 			cudaMalloc((void**) &meanFieldElems,
-					sizeof(float) * size * blockCount), "malloc");
+					sizeof(float) * size * size * blockCount), "malloc");
 	cudaMalloc((void**) &devMat, sizeof(float) * size * size);
 	cudaMalloc((void**) &devSpins, sizeof(float) * size * blockCount);
 	cudaMalloc((void**) &energyElems, sizeof(double) * size * size);
 	cudaMalloc((void**) &devTemp, sizeof(float) * blockCount);
-	cudaMalloc((void**) &delta, sizeof(float) * blockCnt);
+	cudaMalloc((void**) &continueIteration, sizeof(bool) * blockCnt);
 
 	// Copy model data to GPU memory
 	checkError(
@@ -64,7 +64,7 @@ void CudaOperator::cudaClear() {
 	cudaFree(meanFieldElems);
 	cudaFree(devTemp);
 	cudaFree(energyElems);
-	cudaFree(delta);
+	cudaFree(continueIteration);
 }
 
 __global__ void allocHamiltonian(float* devMat, float* devSpins, int index,
@@ -123,84 +123,134 @@ Spinset CudaOperator::extractSpinset(int index) {
 }
 
 __global__ void cudaKernelPull(float* mat, float* spins, int size, float* temp,
-		float tempStep, float* meanFieldElements, float* diff, float minDiff) {
+		float tempStep, float* meanFieldElements, bool* continueIteration,
+		float minDiff) {
 	int blockId = blockIdx.x;
 	int thrId = threadIdx.x;
 
-	bool flag;
-	do {
+	while (temp[blockId] > 0) {
+		//Stabilize
+		continueIteration[blockId] = true;
+		while (continueIteration[blockId]) {
+			// Iterate on all spins
+			if (thrId == 0)
+				continueIteration[blockId] = false;
+
+			__syncthreads();
+
+			// Transitional value assignment
+			int wIndex = thrId;
+			while (wIndex < size * size) {
+				meanFieldElements[wIndex + blockId * size * size] = spins[wIndex
+						+ blockId * size] * mat[wIndex];
+				wIndex = wIndex + blockDim.x;
+			}
+			__syncthreads();
+
+			// Parallelized mean-field computation
+			// TODO: optimize here!
+			wIndex = thrId;
+			while (wIndex < size) {
+				for (int i = 1; i < size; i++)
+					meanFieldElements[wIndex * size + blockId * size * size] +=
+							meanFieldElements[i + wIndex * size
+									+ blockId * size * size];
+				wIndex += blockDim.x;
+			}
+			__syncthreads();
+
+			// Mean-field calculation complete - write new spin and delta
+			int spinId = thrId;
+			while (spinId < size) {
+				float old = spins[spinId + blockId * size];
+				spins[spinId + blockId * size] = -1
+						* tanh(
+								meanFieldElements[spinId * size
+										+ blockId * size * size]
+										/ temp[blockId]);
+
+				// Refresh delta
+				if (minDiff < fabs(old - spins[spinId + blockId * size]))
+					continueIteration[blockId] = true;
+
+				spinId += blockDim.x;
+			}
+			__syncthreads();
+		}
 		//Lessen temperature
 		if (thrId == 0)
 			temp[blockId] = temp[blockId] - tempStep;
-		//Stabilize
-		flag = true;
-		while (flag) {
+	}
+}
+
+__global__ void cudaKernelToFinal(float* mat, float* spins, int size,
+		float* meanFieldElements, bool* continueIteration) {
+	int blockId = blockIdx.x;
+	int thrId = threadIdx.x;
+
+	continueIteration[blockId] = true;
+	//Stabilize
+	while (continueIteration[blockId]) {
+		if (thrId == 0)
+			continueIteration[blockId] = false;
+
+		for (int spinId = 0; spinId < size; ++spinId) {
 			__syncthreads();
-			// Iterate on all spins
-			if (thrId == 0)
-				diff[blockId] = 0;
 
-			for (int spinId = 0; spinId < size; ++spinId) {
-				__syncthreads();
+			// Transitional value assignment
+			int wIndex = thrId;
+			while (wIndex < size) {
+				meanFieldElements[wIndex + blockId * size * size] = spins[wIndex
+						+ blockId * size]
+						* ((wIndex > spinId) ?
+								mat[spinId * size + wIndex] :
+								mat[wIndex * size + spinId]);
+				wIndex = wIndex + blockDim.x;
+			}
+			__syncthreads();
 
-				// Transitional value assignment
-				int wIndex = thrId;
-				while (wIndex < size) {
-					meanFieldElements[wIndex + blockId * size] =
-							spins[wIndex + blockId * size] * ((wIndex > spinId) ?
-									mat[spinId * size + wIndex] :
-									mat[wIndex * size + spinId]);
+			// Parallelized mean-field computation
+			float meanField = 0;
+			long long offset = 1;
+			while (offset < size) {
+				wIndex = thrId;
+				while ((wIndex * 2 + 1) * offset < size) {
+					meanFieldElements[wIndex * 2 * offset
+							+ blockId * size * size] +=
+							meanFieldElements[(wIndex * 2 + 1) * offset
+									+ blockId * size * size];
 					wIndex = wIndex + blockDim.x;
 				}
-				__syncthreads();
-
-				// Parallelized mean-field computation
-				float meanField = 0;
-				long long offset = 1;
-				while (offset < size) {
-					wIndex = thrId;
-					while ((wIndex * 2 + 1) * offset < size) {
-						meanFieldElements[wIndex * 2 * offset + blockId * size] +=
-								meanFieldElements[(wIndex * 2 + 1) * offset
-										+ blockId * size];
-						wIndex = wIndex + blockDim.x;
-					}
-					offset *= 2;
-					__syncthreads();
-				}
-				if (thrId == 0)
-					meanField = meanFieldElements[blockId * size];
-
-				// Mean-field calculation complete - write new spin and delta
-				if (thrId == 0) {
-					float old = spins[spinId + blockId * size];
-					if (temp[blockId] > 0) {
-						spins[spinId + blockId * size] = -1
-								* tanh(meanField / temp[blockId]);
-					} else if (meanField > 0)
-						spins[spinId + blockId * size] = -1;
-					else
-						spins[spinId + blockId * size] = 1;
-
-					// Refresh delta
-					if (diff[blockId]
-							< fabs(old - spins[spinId + blockId * size]))
-						diff[blockId] = fabs(
-								old - spins[spinId + blockId * size]);
-				}
+				offset *= 2;
 				__syncthreads();
 			}
+			if (thrId == 0)
+				meanField = meanFieldElements[blockId * size * size];
 
+			// Mean-field calculation complete - write new spin and delta
+			if (thrId == 0) {
+				float old = spins[spinId + blockId * size];
+				if (meanField > 0)
+					spins[spinId + blockId * size] = -1;
+				else
+					spins[spinId + blockId * size] = 1;
+
+				// Refresh delta
+				if (0.1 < fabs(old - spins[spinId + blockId * size]))
+					continueIteration[blockId] = true;
+			}
 			__syncthreads();
-			if (diff[blockId] < minDiff)
-				flag = false; // diff link is same for all threads; Abort stabilization if diff is appropriate
 		}
-	} while (temp[blockId] >= 0);
+
+		__syncthreads();
+	}
+
 }
 
 void CudaOperator::cudaPull(float pStep) {
 	cudaKernelPull<<<blockCount, blockSize>>>(devMat, devSpins, size, devTemp,
-			pStep, meanFieldElems, delta, minDiff);
+			pStep, meanFieldElems, continueIteration, minDiff);
+	cudaKernelToFinal<<<blockCount, blockSize>>>(devMat, devSpins, size, meanFieldElems, continueIteration);
 	cudaDeviceSynchronize();
 	cudaError_t err = cudaGetLastError();
 	checkError(err, "Kernel at cudaPull");
