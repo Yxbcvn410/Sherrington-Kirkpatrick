@@ -9,6 +9,7 @@
 #include <sstream>
 #include <stdio.h>
 #include <fstream>
+#include <cmath>
 #include "StartupUtils.h"
 #include "FilesystemProvider.h"
 
@@ -16,7 +17,7 @@ using namespace std;
 using namespace FilesystemProvider;
 
 int StartupUtils::grabInteractive(long double& startRef, long double& endRef,
-		long double& stepRef, double& pStepRef, Matrix& matrixRef,
+		long& pointCountRef, double& pStepRef, Matrix& matrixRef,
 		int& blockCountRef, string& wDirRef, bool& cliRef, float& minDiffRef, bool& appendConfigRef) {
 	cliRef = true;
 	cout << "Do you want to init randomizer? (yes/no) ";
@@ -47,13 +48,13 @@ int StartupUtils::grabInteractive(long double& startRef, long double& endRef,
 	cin >> resp;
 	if (resp != "-c")
 		endRef = stod(resp);
-	cout << "Calculation step?" << endl;
-	if (stepRef != -1)
-		cout << "Current value: " << stepRef << ", -c to leave unchanged."
+	cout << "Point quantity?" << endl;
+	if (pointCountRef != -1)
+		cout << "Current value: " << pointCountRef << ", -c to leave unchanged."
 				<< endl;
 	cin >> resp;
 	if (resp != "-c")
-		stepRef = stod(resp);
+		pointCountRef = stol(resp);
 	cout << "When moving to zero step?" << endl;
 	if (pStepRef != -1)
 		cout << "Current value: " << pStepRef << ", -c to leave unchanged."
@@ -98,13 +99,13 @@ int StartupUtils::grabInteractive(long double& startRef, long double& endRef,
 }
 
 int StartupUtils::grabFromString(string inp, long double& startRef,
-		long double& endRef, long double& stepRef, double& pStepRef,
+		long double& endRef, long& pointCountRef, double& pStepRef,
 		Matrix& matrixRef, int& blockCountRef, string& wDirRef, bool& cliRef,
 		float& minDiffRef, bool& appendConfigRef) {
 	istringstream ifs = istringstream(inp);
 	string buffer;
-	bool stepDefinedAsCount = false;
-	double pCount = 1;
+	bool countDefinedAsStep = false;
+	double cStep = 0.001;
 	ifs >> buffer;
 	while (ifs.peek() != EOF) {
 		if (buffer == "%start") {
@@ -112,13 +113,13 @@ int StartupUtils::grabFromString(string inp, long double& startRef,
 		} else if (buffer == "%end" || buffer == "%e") {
 			ifs >> endRef;
 		} else if (buffer == "%step") {
-			ifs >> stepRef;
-			stepDefinedAsCount = false;
+			ifs >> cStep;
+			countDefinedAsStep = true;
 		} else if (buffer == "%md" || buffer == "%mdiff" || buffer == "%mindiff") {
 			ifs >> minDiffRef;
 		} else if (buffer == "%c" || buffer == "%count") {
-			ifs >> pCount;
-			stepDefinedAsCount = true;
+			ifs >> pointCountRef;
+			countDefinedAsStep = false;
 		} else if (buffer == "%pstep" || buffer == "%ps") {
 			ifs >> pStepRef;
 		} else if (buffer == "%bc" || buffer == "%bcount") {
@@ -189,8 +190,8 @@ int StartupUtils::grabFromString(string inp, long double& startRef,
 		}
 		ifs >> buffer;
 	}
-	if (stepDefinedAsCount)
-		stepRef = (endRef - startRef) / pCount;
+	if (countDefinedAsStep)
+		pointCountRef = round((endRef - startRef) / cStep);
 	int exitCode = 0;
 	if (wDirRef == "") {
 		cout << "InputParser: WARNING: " << "Directory not defined" << endl;

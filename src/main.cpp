@@ -1,5 +1,5 @@
-#define VERSION 4.7
-#define BUILD 96
+#define VERSION 4.8
+#define BUILD 98
 
 #include <stdio.h>
 #include <iostream>
@@ -90,7 +90,7 @@ void CLIControl() {
 }
 
 void saveMinData(string dir, Matrix matrix, long double dTemp,
-		long double upTemp, long double step, int blockCount) {
+		long double upTemp, long count, int blockCount) {
 	ofstream spinWriter;
 	if (FilesystemProvider::FileExists(dir + "/spins.txt"))
 		system(("rm -r " + dir + "/spins.txt").c_str());
@@ -99,14 +99,15 @@ void saveMinData(string dir, Matrix matrix, long double dTemp,
 	spinWriter << "Minimum hamiltonian: " << minHamiltonian << endl;
 	spinWriter << "Maximum cut: " << (matrix.getSum() - minHamiltonian) / 2.0
 			<< endl;
-	spinWriter << "Hit count: " << minCount << ", ranging from " << lTemp << " to " << hTemp << endl;
-	spinWriter << "Middle hamiltonian: " << hamSum * step / (upTemp - dTemp)
+	spinWriter << "Hit count: " << minCount << ", ranging from " << lTemp
+			<< " to " << hTemp << endl;
+	spinWriter << "Middle hamiltonian: " << hamSum / count
 			<< endl;
 	spinWriter << "Middle max-cut: "
-			<< (matrix.getSum() - (hamSum) * step / (upTemp - dTemp)) * 0.5
+			<< (matrix.getSum() - (hamSum) / count) * 0.5
 			<< endl;
 	spinWriter << "Temperature bounds: from " << dTemp << " to " << upTemp
-			<< ", " << (int) ((upTemp - dTemp) / step) << " points in total"
+			<< ", " << count << " points in total"
 			<< endl;
 	spinWriter << "Spin assessment:" << endl << minSpins << endl;
 	spinWriter << "Computed using " << blockCount << " thread blocks in "
@@ -125,7 +126,7 @@ int main(int argc, char* argv[]) {
 	string dir = "";
 	long double dTemp = 0;
 	long double upTemp = -1;
-	long double step = 0.001;
+	long pointCount = 1000;
 	double pullStep = 1;
 	int blockCount = -1;
 	int exitCode = -2;
@@ -161,7 +162,7 @@ int main(int argc, char* argv[]) {
 
 	cout << "Parsing..." << endl;
 	exitCode = StartupUtils::grabFromString(oss.str(), ref(dTemp), ref(upTemp),
-			ref(step), ref(pullStep), ref(matrix), ref(blockCount), ref(dir),
+			ref(pointCount), ref(pullStep), ref(matrix), ref(blockCount), ref(dir),
 			ref(cliActive), ref(minimDiff), ref(appendConfig));
 	cout << "Complete." << endl;
 
@@ -170,19 +171,19 @@ int main(int argc, char* argv[]) {
 				<< "Not all init parameters were assigned. Fallback to interactive mode."
 				<< endl;
 		exitCode = StartupUtils::grabInteractive(ref(dTemp), ref(upTemp),
-				ref(step), ref(pullStep), ref(matrix), ref(blockCount),
+				ref(pointCount), ref(pullStep), ref(matrix), ref(blockCount),
 				ref(dir), ref(cliActive), ref(minimDiff), ref(appendConfig));
 	}
 
 	if (dir == "-a" || dir == "-A") {
 		ostringstream oss;
 		oss << "calc" << matrix.getSize() << "_";
-		int dirIndex = FreeFileIndex(getCurrentWorkingDirectory(),
-				oss.str(), "", false);
+		int dirIndex = FreeFileIndex(getCurrentWorkingDirectory(), oss.str(),
+				"", false);
 		oss << dirIndex;
 		dir = getCurrentWorkingDirectory() + "/" + oss.str();
 	}
-	if(!FileExists(dir))
+	if (!FileExists(dir))
 		makeDirectory(dir);
 
 	logWriter.open(dir + "/log.txt", ios::out | ios::app);
@@ -216,42 +217,42 @@ int main(int argc, char* argv[]) {
 
 // Start calculations
 	Spinset spins(matrix.getSize());
-	spins.temp = dTemp;
-	do {
-		float tmptmp = spins.temp;
+	for (long pointIndex = 0; pointIndex < pointCount;) {
 		logWriter << "[" << getTimeString(time(NULL) - start) << "] "
 				<< "Starting pull session. Loading spinsets..." << endl;
 		for (int i = 0; i < blockCount; i++) {
 			spins.Randomize(false);
+			spins.temp = (pointIndex / (double) pointCount) * (upTemp - dTemp) + dTemp;
 			op.cudaLoadSpinset(spins, i);
-			spins.temp += step;
+			pointIndex++;
 		}
 		logWriter << "[" << getTimeString(time(NULL) - start) << "] "
 				<< "Spinset loading complete. Starting CUDA kernel function on range from "
-				<< spins.temp - step * blockCount << " to " << spins.temp
-				<< ", " << blockCount << " blocks." << endl;
+				<< spins.temp - (upTemp - dTemp) / pointCount * blockCount << " to "
+				<< spins.temp << ", " << blockCount << " blocks." << endl;
 		op.cudaPull(pullStep);
 		logWriter << "[" << getTimeString(time(NULL) - start) << "] "
 				<< "Kernel returned success. Acquiring data..." << endl;
-		spins.temp = tmptmp;
+		pointIndex -= blockCount;
 		for (int i = 0; i < blockCount; i++) {
-			if (spins.temp >= upTemp)
+			if (pointIndex >= pointCount)
 				continue;
 			double nrg = op.extractHamiltonian(i);
 			hamSum += nrg;
+			spins.temp = (pointIndex / (double) pointCount) * (upTemp - dTemp) + dTemp;
 			if (nrg < minHamiltonian) {
 				minHamiltonian = nrg;
 				minCount = 1;
 				minSpins = op.extractSpinset(i).getSpins();
 				lTemp = spins.temp;
 				hTemp = spins.temp;
-			} else if (nrg == minHamiltonian){
+			} else if (nrg == minHamiltonian) {
 				hTemp = spins.temp;
 				minCount++;
 			}
-			hamiltonianWriter << fabs(spins.temp) << "\t" << nrg << "\n";
+			hamiltonianWriter << fabs(spins.temp) << "\t" << nrg << " \n";
 			maxcutWriter << (matrix.getSum() - nrg) / 2.0 << ", \n";
-			spins.temp += step;
+			pointIndex++;
 		}
 		progress = (spins.temp * spins.temp - dTemp * dTemp)
 				/ (upTemp * upTemp - dTemp * dTemp);
@@ -260,16 +261,19 @@ int main(int argc, char* argv[]) {
 				<< endl << endl;
 		hamiltonianWriter.flush();
 		maxcutWriter.flush();
-		saveMinData(dir, matrix, dTemp, spins.temp, step, blockCount);
-	} while (spins.temp + step * 0.1 < upTemp);
+		saveMinData(dir, matrix, dTemp, spins.temp, pointIndex, blockCount);
+	}
 
 // Disable output && write data to log
 	progress = -1;
 	logWriter << "Calculation complete in "
 			<< getTimeString(difftime(time(NULL), start)) << endl;
-	if(appendConfig){
-		ofstream config_ofs((FilesystemProvider::getCurrentWorkingDirectory()+"/config").c_str(), ios::out | ios::app);
-		config_ofs << " \%start " << floor(lTemp * 100) / 100.0f << endl << " \%end " << ceil(hTemp * 100 + 1) / 100.0f << endl;
+	if (appendConfig) {
+		ofstream config_ofs(
+				(FilesystemProvider::getCurrentWorkingDirectory() + "/config").c_str(),
+				ios::out | ios::app);
+		config_ofs << " \%start " << floor(lTemp * 100) / 100.0f << endl
+				<< " \%end " << ceil(hTemp * 100 + 1) / 100.0f << endl;
 		cout << "New temperature bounds appended to config";
 	}
 }
