@@ -1,7 +1,6 @@
 #include "Matrix.h"
 #include "Spinset.h"
 #include "CudaOperator.h"
-#include <cuda_runtime.h>
 #include <sstream>
 #include <math.h>
 
@@ -130,9 +129,8 @@ __global__ void cudaKernelPull(float* mat, float* spins, int size, float* temp,
 
 	while (temp[blockId] > 0) {
 		//Stabilize
-		continueIteration[blockId] = true;
-		while (continueIteration[blockId]) {
-			// Iterate on all spins
+		do {
+			// No continue by default
 			if (thrId == 0)
 				continueIteration[blockId] = false;
 
@@ -176,7 +174,7 @@ __global__ void cudaKernelPull(float* mat, float* spins, int size, float* temp,
 				spinId += blockDim.x;
 			}
 			__syncthreads();
-		}
+		} while (continueIteration[blockId]);
 		//Lessen temperature
 		if (thrId == 0)
 			temp[blockId] = temp[blockId] - tempStep;

@@ -26,7 +26,7 @@
 								<option id="nvcc.compiler.option.level.351062094" name="Generate host debug information (-g)" superClass="nvcc.compiler.option.level"/>
 								<option defaultValue="nvcc.compiler.optimization.level.most" id="nvcc.compiler.optimization.level.1725837473" name="Optimization Level" superClass="nvcc.compiler.optimization.level" valueType="enumerated"/>
 								<option id="nvcc.compiler.pic.55588872" name="Position Independent Code (-fPIC)" superClass="nvcc.compiler.pic"/>
-								<option id="nvcc.compiler.cpp11option.932330644" name="Enable C++11 support (-std=c++11)" superClass="nvcc.compiler.cpp11option" value="false" valueType="boolean"/>
+								<option id="nvcc.compiler.cpp11option.932330644" name="Enable C++11 support (-std=c++11)" superClass="nvcc.compiler.cpp11option" value="true" valueType="boolean"/>
 								<inputType id="nvcc.compiler.input.cu.1888642173" superClass="nvcc.compiler.input.cu"/>
 								<inputType id="nvcc.compiler.input.cpp.1560095380" superClass="nvcc.compiler.input.cpp"/>
 								<inputType id="nvcc.compiler.input.c.803178522" superClass="nvcc.compiler.input.c"/>

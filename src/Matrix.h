@@ -15,6 +15,7 @@ class Matrix {
 private:
 	int size;
 	float* matrix;
+	int* unemptyMat;
 	float sum;
 public:
 	Matrix(int size);
@@ -25,6 +26,7 @@ public:
 	int getSize();
 	float* getArray();
 	float getSum();
+	int* getUnemptyMat();
 };
 
 #endif /* MATRIX_H_ */

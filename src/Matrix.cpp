@@ -15,6 +15,7 @@
 Matrix::Matrix(int size) {
 	this->size = size;
 	matrix = new float[size * size];
+	unemptyMat = new int[size * (size + 1)];
 	sum = 0;
 }
 
@@ -24,10 +25,15 @@ Matrix::Matrix(ifstream fs) {
 	size = ss;
 	sum = 0;
 	matrix = new float[size * size];
+	unemptyMat = new int[size * (size + 1)];
 	for (int i = 0; i < size; ++i) {
 		for (int j = 0; j < size; ++j) {
 			fs >> matrix[i * size + j];
 			matrix[j * size + i] = matrix[i * size + j];
+			unemptyMat[i * (size + 1)]++;
+			unemptyMat[i * (size + 1) + unemptyMat[i * (size + 1)]] = j;
+			unemptyMat[j * (size + 1)]++;
+			unemptyMat[j * (size + 1) + unemptyMat[j * (size + 1)]] = i;
 			sum += matrix[i * size + j];
 		}
 	}
@@ -42,6 +48,10 @@ void Matrix::Randomize() {
 			f = f * 2 - 1;
 			matrix[i * size + j] = f;
 			matrix[j * size + i] = matrix[i * size + j];
+			unemptyMat[i * (size + 1)]++;
+			unemptyMat[i * (size + 1) + unemptyMat[i * (size + 1)]] = j;
+			unemptyMat[j * (size + 1)]++;
+			unemptyMat[j * (size + 1) + unemptyMat[j * (size + 1)]] = i;
 			sum += matrix[i * size + j];
 		}
 	}
@@ -75,8 +85,14 @@ void Matrix::buildMat(ifstream ifs) {
 		ifs >> i;
 		ifs >> j;
 		ifs >> val;
-		matrix[(i - 1) * size + (j - 1)] = val;
-		matrix[(j - 1) * size + (i - 1)] = val;
+		i -= 1;
+		j -= 1;
+		matrix[i * size + j] = val;
+		matrix[j * size + i] = val;
+		unemptyMat[i * (size + 1)]++;
+		unemptyMat[i * (size + 1) + unemptyMat[i * (size + 1)]] = j;
+		unemptyMat[j * (size + 1)]++;
+		unemptyMat[j * (size + 1) + unemptyMat[j * (size + 1)]] = i;
 		sum += val;
 	}
 }
@@ -87,4 +103,8 @@ float Matrix::getSum() {
 
 float* Matrix::getArray() {
 	return matrix;
+}
+
+int* Matrix::getUnemptyMat() {
+	return unemptyMat;
 }

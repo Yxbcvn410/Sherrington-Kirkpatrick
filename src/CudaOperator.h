@@ -14,12 +14,12 @@
 class CudaOperator {
 private:
 	//GPU pointers
-	float* devSpins = NULL; //Spinset
-	float* devMat = NULL; //Matrix
-	float* devTemp = NULL; //Temperature
-	float* meanFieldElems = NULL; //Temporary storage for force computation
-	bool* continueIteration = NULL;
-	double* energyElems = NULL; //Temporary storage for energy computation
+	float* devSpins; //Spinset
+	float* devMat; //Matrix
+	float* devTemp; //Temperature
+	float* meanFieldElems; //Temporary storage for force computation
+	bool* continueIteration;
+	double* energyElems; //Temporary storage for energy computation
 	//CPU variables
 	int size;
 	int blockSize;
