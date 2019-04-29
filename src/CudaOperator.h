@@ -16,6 +16,7 @@ private:
 	//GPU pointers
 	float* devSpins; //Spinset
 	float* devMat; //Matrix
+	int* devUnemptyMat; //UnemptyMat field of Matrix object
 	float* devTemp; //Temperature
 	float* meanFieldElems; //Temporary storage for force computation
 	bool* continueIteration;

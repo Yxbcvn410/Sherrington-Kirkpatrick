@@ -18,6 +18,7 @@ CudaOperator::CudaOperator(Matrix matrix, int blockCnt, float _minDiff) {
 	// Set pointers to null
 	devSpins = NULL;
 	devMat = NULL;
+	devUnemptyMat = NULL;
 	meanFieldElems = NULL;
 	energyElems = NULL;
 	continueIteration = NULL;
@@ -37,6 +38,7 @@ CudaOperator::CudaOperator(Matrix matrix, int blockCnt, float _minDiff) {
 					sizeof(float) * size * size * blockCount), "malloc");
 	cudaMalloc((void**) &devMat, sizeof(float) * size * size);
 	cudaMalloc((void**) &devSpins, sizeof(float) * size * blockCount);
+	cudaMalloc((void**) &devUnemptyMat, sizeof(int) * size * (size + 1));
 	cudaMalloc((void**) &energyElems, sizeof(double) * size * size);
 	cudaMalloc((void**) &devTemp, sizeof(float) * blockCount);
 	cudaMalloc((void**) &continueIteration, sizeof(bool) * blockCnt);
@@ -45,6 +47,8 @@ CudaOperator::CudaOperator(Matrix matrix, int blockCnt, float _minDiff) {
 	checkError(
 			cudaMemcpy(devMat, matrix.getArray(), sizeof(float) * size * size,
 					cudaMemcpyHostToDevice), "memcpy mat to host");
+	cudaMemcpy(devUnemptyMat, matrix.getUnemptyMat(), sizeof(int) * size * (size + 1),
+						cudaMemcpyHostToDevice);
 }
 
 void CudaOperator::cudaLoadSpinset(Spinset spinset, int index) {
@@ -62,6 +66,7 @@ void CudaOperator::cudaClear() {
 	cudaFree(devMat);
 	cudaFree(meanFieldElems);
 	cudaFree(devTemp);
+	cudaFree(devUnemptyMat);
 	cudaFree(energyElems);
 	cudaFree(continueIteration);
 }
@@ -123,7 +128,7 @@ Spinset CudaOperator::extractSpinset(int index) {
 
 __global__ void cudaKernelPull(float* mat, float* spins, int size, float* temp,
 		float tempStep, float* meanFieldElements, bool* continueIteration,
-		float minDiff) {
+		float minDiff, int* unemptyCells) {
 	int blockId = blockIdx.x;
 	int thrId = threadIdx.x;
 
@@ -247,7 +252,7 @@ __global__ void cudaKernelToFinal(float* mat, float* spins, int size,
 
 void CudaOperator::cudaPull(float pStep) {
 	cudaKernelPull<<<blockCount, blockSize>>>(devMat, devSpins, size, devTemp,
-			pStep, meanFieldElems, continueIteration, minDiff);
+			pStep, meanFieldElems, continueIteration, minDiff, devUnemptyMat);
 	cudaKernelToFinal<<<blockCount, blockSize>>>(devMat, devSpins, size, meanFieldElems, continueIteration);
 	cudaDeviceSynchronize();
 	cudaError_t err = cudaGetLastError();
