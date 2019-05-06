@@ -16,6 +16,11 @@ Matrix::Matrix(int size) {
 	this->size = size;
 	matrix = new float[size * size];
 	unemptyMat = new int[size * (size + 1)];
+	for (int var = 0; var < size * (size + 1); ++var) {
+		unemptyMat[var] = 0;
+		if (var < size * size)
+			matrix[var] = 0.;
+	}
 	sum = 0;
 }
 
@@ -26,6 +31,11 @@ Matrix::Matrix(ifstream fs) {
 	sum = 0;
 	matrix = new float[size * size];
 	unemptyMat = new int[size * (size + 1)];
+	for (int var = 0; var < size * (size + 1); ++var) {
+		unemptyMat[var] = 0;
+		if (var < size * size)
+			matrix[var] = 0.;
+	}
 	for (int i = 0; i < size; ++i) {
 		for (int j = 0; j < size; ++j) {
 			fs >> matrix[i * size + j];
@@ -79,6 +89,12 @@ void Matrix::buildMat(ifstream ifs) {
 	sum = 0;
 	ifs >> size;
 	matrix = new float[size * size];
+	unemptyMat = new int[size * (size + 1)];
+	for (int var = 0; var < size * (size + 1); ++var) {
+		unemptyMat[var] = 0;
+		if (var < size * size)
+			matrix[var] = 0.;
+	}
 	int i, j, val, edges;
 	ifs >> edges;
 	for (int var = 0; var < edges; ++var) {
