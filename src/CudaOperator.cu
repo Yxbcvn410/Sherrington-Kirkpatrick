@@ -141,23 +141,30 @@ __global__ void cudaKernelPull(float* mat, float* spins, int size, float* temp,
 
 			__syncthreads();
 
-			//START
-			for (int spinId = 0; spinId < size; spinId++) {
-				int wIndex = 0;
-				while (wIndex < size * size) {
-					meanFieldElements[wIndex + blockId * size * size] =
-							spins[wIndex + blockId * size] * mat[wIndex];
-					wIndex = wIndex + 1;
-				}
-				__syncthreads();
-				if (thrId == 0) {
-					for (int i = 0; i < size; ++i) {
-						meanFieldElements[spinId * size + blockId * size * size] +=
-								meanFieldElements[i + spinId * size
-										+ blockId * size * size];
-					}
-				}
+			// Transitional value assignment
+			int wIndex = thrId;
+			while (wIndex < size * size) {
+				meanFieldElements[wIndex + blockId * size * size] = spins[wIndex
+						+ blockId * size] * mat[wIndex];
+				wIndex = wIndex + blockDim.x;
+			}
+			__syncthreads();
 
+			// Parallelized mean-field computation
+			// TODO: optimize here!
+			wIndex = thrId;
+			while (wIndex < size) {
+				for (int i = 1; i < size; i++)
+					meanFieldElements[wIndex * size + blockId * size * size] +=
+							meanFieldElements[i + wIndex * size
+									+ blockId * size * size];
+				wIndex += blockDim.x;
+			}
+			__syncthreads();
+
+			// Mean-field calculation complete - write new spin and delta
+			int spinId = thrId;
+			while (spinId < size) {
 				float old = spins[spinId + blockId * size];
 				spins[spinId + blockId * size] = -1
 						* tanh(
@@ -169,7 +176,8 @@ __global__ void cudaKernelPull(float* mat, float* spins, int size, float* temp,
 				if (minDiff < fabs(old - spins[spinId + blockId * size]))
 					continueIteration[blockId] = true;
 
-			}
+				spinId += blockDim.x;
+			}						 //*/
 			__syncthreads();
 		} while (continueIteration[blockId]);
 		//Lessen temperature
