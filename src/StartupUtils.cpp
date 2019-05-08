@@ -22,7 +22,7 @@ int StartupUtils::grabInteractive(long double& startRef, long double& endRef,
 	cliRef = true;
 	cout << "Do you want to init randomizer? (yes/no) ";
 	string resp = "";
-	cin >> resp;
+	getline(cin, resp);
 	srand(0);
 	if (resp == "yes" || resp == "y") {
 		srand(time(0));
@@ -32,52 +32,52 @@ int StartupUtils::grabInteractive(long double& startRef, long double& endRef,
 		cout
 				<< "Working dir? (-a to auto-create in current working directory)\n"
 				<< getCurrentWorkingDirectory() << endl;
-		cin >> wDirRef;
+		getline(cin, wDirRef);
 	}
 	cout << "Lower temperature limit?" << endl;
 	if (startRef != -1)
-		cout << "Current value: " << startRef << ", -c to leave unchanged."
+		cout << "Current value: " << startRef << ", press Enter to leave unchanged."
 				<< endl;
-	cin >> resp;
-	if (resp != "-c")
+	getline(cin, resp);
+	if (resp != "")
 		startRef = stod(resp);
 	cout << "Upper temperature limit?" << endl;
 	if (endRef != -1)
-		cout << "Current value: " << endRef << ", -c to leave unchanged."
+		cout << "Current value: " << endRef << ", press Enter to leave unchanged."
 				<< endl;
-	cin >> resp;
-	if (resp != "-c")
+	getline(cin, resp);
+	if (resp != "")
 		endRef = stod(resp);
 	cout << "Point quantity?" << endl;
 	if (pointCountRef != -1)
-		cout << "Current value: " << pointCountRef << ", -c to leave unchanged."
+		cout << "Current value: " << pointCountRef << ", press Enter to leave unchanged."
 				<< endl;
-	cin >> resp;
-	if (resp != "-c")
+	getline(cin, resp);
+	if (resp != "")
 		pointCountRef = stol(resp);
 	cout << "When moving to zero step?" << endl;
 	if (pStepRef != -1)
-		cout << "Current value: " << pStepRef << ", -c to leave unchanged."
+		cout << "Current value: " << pStepRef << ", press Enter to leave unchanged."
 				<< endl;
-	cin >> resp;
-	if (resp != "-c")
+	getline(cin, resp);
+	if (resp != "")
 		pStepRef = stod(resp);
 	cout << "CUDA block count?" << endl;
 	if (blockCountRef != -1)
-		cout << "Current value: " << blockCountRef << ", -c to leave unchanged."
+		cout << "Current value: " << blockCountRef << ", press Enter to leave unchanged."
 				<< endl;
-	cin >> resp;
-	if (resp != "-c")
+	getline(cin, resp);
+	if (resp != "")
 		blockCountRef = stod(resp);
 	cout << "Minimum iteration delta?" << endl;
 	if (minDiffRef != -1)
-		cout << "Current value: " << minDiffRef << ", -c to leave unchanged."
+		cout << "Current value: " << minDiffRef << ", press Enter to leave unchanged."
 				<< endl;
-	cin >> resp;
-	if (resp != "-c")
+	getline(cin, resp);
+	if (resp != "")
 		minDiffRef = stod(resp);
 	cout << "Matrix file path? (-r to randomize, -b to build)" << endl;
-	cin >> resp;
+	getline(cin, resp);
 	if (resp == "-r" || resp == "-R") {
 		int msize;
 		cout << "Matrix size?" << endl;
@@ -85,11 +85,11 @@ int StartupUtils::grabInteractive(long double& startRef, long double& endRef,
 		matrixRef = Matrix(msize);
 	} else if (resp == "-b" || resp == "-B") {
 		cout << "Matrix builder file path?" << endl;
-		cin >> resp;
+		getline(cin, resp);
 		matrixRef.buildMat(ifstream(resp));
 	} else
 		matrixRef = Matrix(ifstream(resp));
-	cout << "Do you want to append new temperature ranges to config after session?" << endl;
+	cout << "Do you want to append new temperature ranges to config after session? (yes/no)" << endl;
 	cin >> resp;
 	if (resp == "yes" || resp == "y") {
 			appendConfigRef = true;

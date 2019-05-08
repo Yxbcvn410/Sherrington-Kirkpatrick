@@ -20,7 +20,7 @@
 					<folderInfo id="com.nvidia.cuda.ide.nine_zero.configuration.release.945556390." name="/" resourcePath="">
 						<toolChain errorParsers="" id="com.nvidia.cuda.ide.toolchain.nine_zero.1861574651" name="CUDA Toolkit 10.0" superClass="com.nvidia.cuda.ide.toolchain.nine_zero">
 							<targetPlatform archList="all" binaryParser="com.nvidia.cuda.ide.elf;com.nvidia.cuda.ide.macho;com.nvidia.cuda.ide.cubin" id="com.nvidia.cuda.ide.targetPlatform.468891279" isAbstract="false" name="Debug Platform" osList="linux,macosx" superClass="com.nvidia.cuda.ide.targetPlatform"/>
-							<builder buildPath="${workspace_loc:/Sherrington-Kirkpatrick}/Release" errorParsers="" id="com.nvidia.cuda.ide.builder.498701382" keepEnvironmentInBuildfile="false" name="CUDA Toolkit 10.0 Builder" superClass="com.nvidia.cuda.ide.builder"/>
+							<builder buildPath="${workspace_loc:/Sherrington-Kirkpatrick}/Release" errorParsers="" id="com.nvidia.cuda.ide.builder.498701382" keepEnvironmentInBuildfile="false" name="CUDA Toolkit 10.1 Builder" superClass="com.nvidia.cuda.ide.builder"/>
 							<tool errorParsers="org.eclipse.cdt.core.VCErrorParser;nvcc.errorParser;org.eclipse.cdt.core.GCCErrorParser" id="nvcc.compiler.base.571580658" name="NVCC Compiler" superClass="nvcc.compiler.base">
 								<option id="nvcc.compiler.deviceDebug.312455488" name="Generate device debug information (-G)" superClass="nvcc.compiler.deviceDebug"/>
 								<option id="nvcc.compiler.option.level.351062094" name="Generate host debug information (-g)" superClass="nvcc.compiler.option.level"/>
@@ -46,9 +46,6 @@
 							</tool>
 						</toolChain>
 					</folderInfo>
-					<fileInfo id="com.nvidia.cuda.ide.nine_zero.configuration.release.945556390.64464621" name="CudaOperator.cu" rcbsApplicability="disable" resourcePath="src/CudaOperator.cu" toolsToInvoke="nvcc.compiler.base.571580658.566410240">
-						<tool errorParsers="org.eclipse.cdt.core.VCErrorParser;nvcc.errorParser;org.eclipse.cdt.core.GCCErrorParser" id="nvcc.compiler.base.571580658.566410240" name="NVCC Compiler" superClass="nvcc.compiler.base.571580658"/>
-					</fileInfo>
 				</configuration>
 			</storageModule>
 			<storageModule moduleId="com.nvidia.cuda.ide.build.project.ICudaProjectConfiguration">
