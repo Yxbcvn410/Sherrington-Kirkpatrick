@@ -2,7 +2,7 @@
  * CudaOperations.h
  *
  *  Created on: Feb 6, 2019
- *      Author: root
+ *      Author: alexander
  */
 
 #ifndef CUDAOPERATIONS_H_
@@ -18,9 +18,9 @@ private:
 	float* devMat; //Matrix
 	int* devUnemptyMat; //UnemptyMat field of Matrix object
 	float* devTemp; //Temperature
-	float* meanFieldElems; //Temporary storage for force computation
+	float* meanFieldElems; //Temporary storage for meanfield computation
 	bool* continueIteration;
-	double* energyElems; //Temporary storage for energy computation
+	double* hamiltonianElems; //Temporary storage for hamiltonian computation
 	//CPU variables
 	int size;
 	int blockSize;
