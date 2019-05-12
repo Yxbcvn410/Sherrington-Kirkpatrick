@@ -1,5 +1,5 @@
 #define VERSION 5.0
-#define BUILD 102
+#define BUILD 103
 
 #include <stdio.h>
 #include <iostream>
@@ -164,15 +164,19 @@ int main(int argc, char* argv[]) {
 	exitCode = StartupUtils::grabFromString(oss.str(), ref(dTemp), ref(upTemp),
 			ref(pointCount), ref(pullStep), ref(matrix), ref(blockCount), ref(dir),
 			ref(cliActive), ref(minimDiff), ref(appendConfig));
+	if (exitCode == -1)
+			exit(-1);
 	cout << "Complete." << endl;
 
-	if (exitCode != 0) {
+	if (exitCode == 1) {
 		cout
 				<< "Not all init parameters were assigned. Fallback to interactive mode."
 				<< endl;
 		exitCode = StartupUtils::grabInteractive(ref(dTemp), ref(upTemp),
 				ref(pointCount), ref(pullStep), ref(matrix), ref(blockCount),
 				ref(dir), ref(cliActive), ref(minimDiff), ref(appendConfig));
+		if (exitCode == -1)
+				exit(-1);
 	}
 
 	if (dir == "-a" || dir == "-A") {
