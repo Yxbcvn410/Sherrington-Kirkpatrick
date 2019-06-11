@@ -1,5 +1,5 @@
-#define VERSION 5.0
-#define BUILD 103
+#define VERSION 5.1
+#define BUILD 107
 
 #include <stdio.h>
 #include <iostream>
@@ -118,7 +118,7 @@ void saveMinData(string dir, Matrix matrix, long double dTemp,
 }
 
 int main(int argc, char* argv[]) {
-	cout << "NMFA-like analysis by Yxbcvn410, version " << VERSION << ", build "
+	cout << "MARS analysis by Yxbcvn410, version " << VERSION << ", build "
 			<< BUILD << endl;
 
 	//Init model
@@ -133,7 +133,8 @@ int main(int argc, char* argv[]) {
 	ofstream logWriter;
 	bool cliActive = false;
 	float minimDiff = 0.01;
-	bool appendConfig = false;
+	int appendConfig = 0;
+	float linearCoef = 1;
 
 	//Append config file
 	cout
@@ -163,23 +164,19 @@ int main(int argc, char* argv[]) {
 	cout << "Parsing..." << endl;
 	exitCode = StartupUtils::grabFromString(oss.str(), ref(dTemp), ref(upTemp),
 			ref(pointCount), ref(pullStep), ref(matrix), ref(blockCount), ref(dir),
-			ref(cliActive), ref(minimDiff), ref(appendConfig));
+			ref(cliActive), ref(minimDiff), ref(appendConfig), ref(linearCoef));
 	if (exitCode == -1)
 			exit(-1);
-	cout << "Complete." << endl;
+	cout << "Parsing complete." << endl;
 
 	if (exitCode == 1) {
 		cout
-				<< "Not all init parameters were assigned. Fallback to interactive mode."
+				<< "Not all init parameters were assigned. Program will be terminated."
 				<< endl;
-		exitCode = StartupUtils::grabInteractive(ref(dTemp), ref(upTemp),
-				ref(pointCount), ref(pullStep), ref(matrix), ref(blockCount),
-				ref(dir), ref(cliActive), ref(minimDiff), ref(appendConfig));
-		if (exitCode == -1)
 				exit(-1);
 	}
 
-	if (dir == "-a" || dir == "-A") {
+	if (dir == "auto" || dir == "-a") {
 		ostringstream oss;
 		oss << "calc" << matrix.getSize() << "_";
 		int dirIndex = FreeFileIndex(getCurrentWorkingDirectory(), oss.str(),
@@ -187,12 +184,14 @@ int main(int argc, char* argv[]) {
 		oss << dirIndex;
 		dir = getCurrentWorkingDirectory() + "/" + oss.str();
 	}
-	if (!FileExists(dir))
+	if (!FileExists(dir)){
 		makeDirectory(dir);
+		cout << "Made directory " << dir << endl;
+	}
 
 	logWriter.open(dir + "/log.txt", ios::out | ios::app);
 
-	logWriter << "Matrix loaded, size " << matrix.getSize() << endl;
+	logWriter << "Matrix loaded, size " << matrix.getSize() << ", will evaluate " << pointCount << " points." << endl;
 
 	fstream fs;
 	fs.open(ComposeFilename(dir, "mat", ".txt"), ios::out);
@@ -234,7 +233,7 @@ int main(int argc, char* argv[]) {
 				<< "Spinset loading complete. Starting CUDA kernel function on range from "
 				<< spins.temp - (upTemp - dTemp) / pointCount * blockCount << " to "
 				<< spins.temp << ", " << blockCount << " blocks." << endl;
-		op.cudaPull(pullStep);
+		op.cudaPull(pullStep, linearCoef);
 		logWriter << "[" << getTimeString(time(NULL) - start) << "] "
 				<< "Kernel returned success. Acquiring data..." << endl;
 		pointIndex -= blockCount;
@@ -261,8 +260,8 @@ int main(int argc, char* argv[]) {
 		progress = (spins.temp * spins.temp - dTemp * dTemp)
 				/ (upTemp * upTemp - dTemp * dTemp);
 		logWriter << "[" << getTimeString(time(NULL) - start) << "] "
-				<< "Pull session complete, current temperature: " << spins.temp
-				<< endl << endl;
+				<< "Pull session complete, current temperature: " << spins.temp << endl
+				<< ((pointCount - pointIndex > 0) ? (pointCount - pointIndex) : 0) << " points left." << endl << endl;
 		hamiltonianWriter.flush();
 		maxcutWriter.flush();
 		saveMinData(dir, matrix, dTemp, spins.temp, pointIndex, blockCount);
@@ -272,7 +271,14 @@ int main(int argc, char* argv[]) {
 	progress = -1;
 	logWriter << "Calculation complete in "
 			<< getTimeString(difftime(time(NULL), start)) << endl;
-	if (appendConfig) {
+	if (appendConfig == 1) {
+		ofstream config_ofs(
+				(FilesystemProvider::getCurrentWorkingDirectory() + "/config").c_str(),
+				ios::out | ios::app);
+		config_ofs << " \%start 0" << endl
+				<< " \%end " << ceil(hTemp * 100 + 1) / 100.0f << endl;
+		cout << "New temperature bounds appended to config";
+	} else if (appendConfig == 2) {
 		ofstream config_ofs(
 				(FilesystemProvider::getCurrentWorkingDirectory() + "/config").c_str(),
 				ios::out | ios::app);

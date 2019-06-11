@@ -41,7 +41,9 @@ CudaOperator::CudaOperator(Matrix _matrix, int _blockCount, float _minDiff) {
 	blockSize = deviceProp.maxThreadsPerBlock;
 
 	// Allocate memory for pointers at GPU
-	checkError(cudaMalloc((void**) &meanFieldElems, sizeof(float) * size * blockCount), "malloc");
+	checkError(
+			cudaMalloc((void**) &meanFieldElems,
+					sizeof(float) * size * blockCount), "malloc");
 	cudaMalloc((void**) &devMat, sizeof(float) * size * size);
 	cudaMalloc((void**) &devSpins, sizeof(float) * size * blockCount);
 	cudaMalloc((void**) &devUnemptyMat, sizeof(int) * size * (size + 1));
@@ -50,15 +52,20 @@ CudaOperator::CudaOperator(Matrix _matrix, int _blockCount, float _minDiff) {
 	cudaMalloc((void**) &continueIteration, sizeof(bool) * _blockCount);
 
 	// Copy model data to GPU memory
-	checkError(cudaMemcpy(devMat, _matrix.getArray(), sizeof(float) * size * size, cudaMemcpyHostToDevice),
-			"memcpy mat to host");
-	cudaMemcpy(devUnemptyMat, _matrix.getUnemptyMat(), sizeof(int) * size * (size + 1), cudaMemcpyHostToDevice);
+	checkError(
+			cudaMemcpy(devMat, _matrix.getArray(), sizeof(float) * size * size,
+					cudaMemcpyHostToDevice), "memcpy mat to host");
+	cudaMemcpy(devUnemptyMat, _matrix.getUnemptyMat(),
+			sizeof(int) * size * (size + 1), cudaMemcpyHostToDevice);
 }
 
 void CudaOperator::cudaLoadSpinset(Spinset spinset, int spinsetIndex) {
-	checkError(cudaMemcpy(&devSpins[spinsetIndex * size], spinset.getArray(), sizeof(float) * size, cudaMemcpyHostToDevice),
+	checkError(
+			cudaMemcpy(&devSpins[spinsetIndex * size], spinset.getArray(),
+					sizeof(float) * size, cudaMemcpyHostToDevice),
 			"memcpy spinset to device");
-	cudaMemcpy(&devTemp[spinsetIndex], &(spinset.temp), sizeof(float), cudaMemcpyHostToDevice);
+	cudaMemcpy(&devTemp[spinsetIndex], &(spinset.temp), sizeof(float),
+			cudaMemcpyHostToDevice);
 }
 
 void CudaOperator::cudaClear() {
@@ -72,7 +79,8 @@ void CudaOperator::cudaClear() {
 	cudaFree(continueIteration);
 }
 
-__global__ void allocHamiltonian(float* devMat, float* devSpins, int index, int size, double* energyTempor) {
+__global__ void allocHamiltonian(float* devMat, float* devSpins, int index,
+		int size, double* energyTempor) {
 	int i;
 	int j;
 
@@ -80,7 +88,8 @@ __global__ void allocHamiltonian(float* devMat, float* devSpins, int index, int 
 	while (wIndex < size * size) {
 		i = wIndex % size;
 		j = (int) (wIndex / size);
-		energyTempor[wIndex] = (double) (devSpins[i + index * size] * devSpins[j + index * size] * devMat[wIndex]);
+		energyTempor[wIndex] = (double) (devSpins[i + index * size]
+				* devSpins[j + index * size] * devMat[wIndex]);
 		wIndex = wIndex + blockDim.x * gridDim.x;
 	}
 }
@@ -91,7 +100,8 @@ __global__ void quickSum(double* energyTempor, int size) {
 	while (offset < size * size) {
 		wIndex = threadIdx.x;
 		while ((wIndex * 2 + 1) * offset < size * size) {
-			energyTempor[wIndex * 2 * offset] += energyTempor[(wIndex * 2 + 1) * offset];
+			energyTempor[wIndex * 2 * offset] += energyTempor[(wIndex * 2 + 1)
+					* offset];
 			wIndex = wIndex + blockDim.x;
 		}
 		offset *= 2;
@@ -115,16 +125,18 @@ double CudaOperator::extractHamiltonian(int index) {
 
 Spinset CudaOperator::extractSpinset(int index) {
 	float* hSpins = (float*) malloc(sizeof(float) * size);
-	checkError(cudaMemcpy(hSpins, &devSpins[index * size], sizeof(float) * size, cudaMemcpyDeviceToHost),
-			"memcpy spins to host");
+	checkError(
+			cudaMemcpy(hSpins, &devSpins[index * size], sizeof(float) * size,
+					cudaMemcpyDeviceToHost), "memcpy spins to host");
 	Spinset outSpins(size);
 	for (int i = 0; i < size; i++)
 		outSpins.SetSpin(i, hSpins[i]);
 	return outSpins;
 }
 
-__global__ void cudaKernelPull(float* mat, float* spins, int size, float* temp, float tempStep,
-		float* meanFieldElements, bool* continueIteration, float minDiff, int* unemptyCells) {
+__global__ void cudaKernelPull(float* mat, float* spins, int size, float* temp,
+		float tempStep, float* meanFieldElements, bool* continueIteration,
+		float minDiff, int* unemptyCells, float linearCoef) {
 	int blockId = blockIdx.x;
 	int thrId = threadIdx.x;
 
@@ -146,8 +158,12 @@ __global__ void cudaKernelPull(float* mat, float* spins, int size, float* temp, 
 				// Transitional value assignment
 				int wIndex = thrId;
 				while (wIndex < unemptyCells[spinId * (size + 1)]) {
-					meanFieldElements[wIndex + blockId * size] = spins[unemptyCells[spinId * (size + 1) + wIndex + 1]
-							+ blockId * size] * mat[spinId * size + unemptyCells[spinId * (size + 1) + wIndex + 1]];
+					meanFieldElements[wIndex + blockId * size] =
+							spins[unemptyCells[spinId * (size + 1) + wIndex + 1]
+									+ blockId * size]
+									* mat[spinId * size
+											+ unemptyCells[spinId * (size + 1)
+													+ wIndex + 1]];
 					// BEWARE: Matrix is symmetrical!
 					wIndex = wIndex + blockDim.x;
 				}
@@ -158,8 +174,11 @@ __global__ void cudaKernelPull(float* mat, float* spins, int size, float* temp, 
 				long long offset = 1;
 				while (offset < unemptyCells[spinId * (size + 1)]) {
 					wIndex = thrId;
-					while ((wIndex * 2 + 1) * offset < unemptyCells[spinId * (size + 1)]) {
-						meanFieldElements[wIndex * 2 * offset + blockId * size] += meanFieldElements[(wIndex * 2 + 1) * offset+blockId * size];
+					while ((wIndex * 2 + 1) * offset
+							< unemptyCells[spinId * (size + 1)]) {
+						meanFieldElements[wIndex * 2 * offset + blockId * size] +=
+								meanFieldElements[(wIndex * 2 + 1) * offset
+										+ blockId * size];
 						wIndex = wIndex + blockDim.x;
 					}
 					offset *= 2;
@@ -172,7 +191,10 @@ __global__ void cudaKernelPull(float* mat, float* spins, int size, float* temp, 
 				if (thrId == 0) {
 					float old = spins[spinId + blockId * size];
 					if (temp[blockId] > 0) {
-						spins[spinId + blockId * size] = -1 * tanh(meanField / temp[blockId]);
+						spins[spinId + blockId * size] = -1
+								* tanh(meanField / temp[blockId]) * linearCoef
+								+ spins[spinId + blockId * size]
+										* (1 - linearCoef);
 					} else if (meanField > 0)
 						spins[spinId + blockId * size] = -1;
 					else
@@ -187,9 +209,9 @@ __global__ void cudaKernelPull(float* mat, float* spins, int size, float* temp, 
 	} while (temp[blockId] >= 0);
 }
 
-void CudaOperator::cudaPull(float pStep) {
+void CudaOperator::cudaPull(float pStep, float linearCoef) {
 	cudaKernelPull<<<blockCount, blockSize>>>(devMat, devSpins, size, devTemp,
-			pStep, meanFieldElems, continueIteration, minDiff, devUnemptyMat);
+			pStep, meanFieldElems, continueIteration, minDiff, devUnemptyMat, linearCoef);
 	cudaDeviceSynchronize();
 	cudaError_t err = cudaGetLastError();
 	checkError(err, "Kernel at cudaPull");

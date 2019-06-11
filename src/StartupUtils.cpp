@@ -16,107 +16,10 @@
 using namespace std;
 using namespace FilesystemProvider;
 
-int StartupUtils::grabInteractive(long double& startRef, long double& endRef,
-		long& pointCountRef, double& pStepRef, Matrix& matrixRef,
-		int& blockCountRef, string& wDirRef, bool& cliRef, float& minDiffRef,
-		bool& appendConfigRef) {
-	cliRef = true;
-	cout << "Do you want to init randomizer? (yes/no) ";
-	string resp = "";
-	getline(cin, resp);
-	srand(0);
-	if (resp == "yes" || resp == "y") {
-		srand(time(0));
-	} else
-		cout << "InputParser: WARNING: Randomizer was not initialized" << "\n";
-	if (wDirRef == "") {
-		cout
-				<< "Working dir? (-a to auto-create in current working directory)\n"
-				<< getCurrentWorkingDirectory() << endl;
-		getline(cin, wDirRef);
-	}
-	cout << "Lower temperature limit?" << endl;
-	if (startRef != -1)
-		cout << "Current value: " << startRef
-				<< ", press Enter to leave unchanged." << endl;
-	getline(cin, resp);
-	if (resp != "")
-		startRef = stod(resp);
-	cout << "Upper temperature limit?" << endl;
-	if (endRef != -1)
-		cout << "Current value: " << endRef
-				<< ", press Enter to leave unchanged." << endl;
-	getline(cin, resp);
-	if (resp != "")
-		endRef = stod(resp);
-	cout << "Point quantity?" << endl;
-	if (pointCountRef != -1)
-		cout << "Current value: " << pointCountRef
-				<< ", press Enter to leave unchanged." << endl;
-	getline(cin, resp);
-	if (resp != "")
-		pointCountRef = stol(resp);
-	cout << "When moving to zero step?" << endl;
-	if (pStepRef != -1)
-		cout << "Current value: " << pStepRef
-				<< ", press Enter to leave unchanged." << endl;
-	getline(cin, resp);
-	if (resp != "")
-		pStepRef = stod(resp);
-	cout << "CUDA block count?" << endl;
-	if (blockCountRef != -1)
-		cout << "Current value: " << blockCountRef
-				<< ", press Enter to leave unchanged." << endl;
-	getline(cin, resp);
-	if (resp != "")
-		blockCountRef = stod(resp);
-	cout << "Minimum iteration delta?" << endl;
-	if (minDiffRef != -1)
-		cout << "Current value: " << minDiffRef
-				<< ", press Enter to leave unchanged." << endl;
-	getline(cin, resp);
-	if (resp != "")
-		minDiffRef = stod(resp);
-	cout << "Matrix file path? (-r to randomize, -b to build)" << endl;
-	getline(cin, resp);
-	if (resp == "-r" || resp == "-R") {
-		int msize;
-		cout << "Matrix size?" << endl;
-		cin >> msize;
-		matrixRef = Matrix(msize);
-		matrixRef.Randomize();
-	} else if (resp == "-b" || resp == "-B") {
-		cout << "Matrix builder file path?" << endl;
-		getline(cin, resp);
-		if (ifstream(resp).good()) {
-			cout
-					<< "InputParser: FATAL ERROR: Matrix file specified does not exist. Program will be terminated.";
-			return -1;
-		}
-		matrixRef.buildMat(ifstream(resp));
-	} else {
-		if (ifstream(resp).good()) {
-			cout
-					<< "InputParser: FATAL ERROR: Matrix file specified does not exist. Program will be terminated.";
-			return -1;
-		}
-		matrixRef = Matrix(ifstream(resp));
-	}
-	cout
-			<< "Do you want to append new temperature ranges to config after session? (yes/no)"
-			<< endl;
-	cin >> resp;
-	if (resp == "yes" || resp == "y") {
-		appendConfigRef = true;
-	} else
-		appendConfigRef = false;
-	return 0;
-}
-
 int StartupUtils::grabFromString(string inp, long double& startRef,
 		long double& endRef, long& pointCountRef, double& pStepRef,
 		Matrix& matrixRef, int& blockCountRef, string& wDirRef, bool& cliRef,
-		float& minDiffRef, bool& appendConfigRef) {
+		float& minDiffRef, int& appendConfigRef, float& linearCoefRef) {
 	istringstream ifs = istringstream(inp);
 	string buffer;
 	bool countDefinedAsStep = false;
@@ -136,6 +39,8 @@ int StartupUtils::grabFromString(string inp, long double& startRef,
 		} else if (buffer == "%c" || buffer == "%count") {
 			ifs >> pointCountRef;
 			countDefinedAsStep = false;
+		} else if (buffer == "%lincoef" || buffer == "%lc") {
+			ifs >> linearCoefRef;
 		} else if (buffer == "%pstep" || buffer == "%ps") {
 			ifs >> pStepRef;
 		} else if (buffer == "%bc" || buffer == "%bcount") {
@@ -159,10 +64,12 @@ int StartupUtils::grabFromString(string inp, long double& startRef,
 						<< endl;
 				return -1;
 			} else if (buffer == "%ml_b" || buffer == "%mloc_b") {
-				cout << "InputParser: MESSAGE: Started building matrix." << endl;
+				cout << "InputParser: MESSAGE: Started building matrix."
+						<< endl;
 				matrixRef.buildMat(ifstream(loc));
 			} else {
-				cout << "InputParser: MESSAGE: Started building matrix." << endl;
+				cout << "InputParser: MESSAGE: Started building matrix."
+						<< endl;
 				matrixRef = Matrix(ifstream(loc));
 			}
 			cout << "InputParser: MESSAGE: Matrix loaded successfully" << endl;
@@ -192,10 +99,12 @@ int StartupUtils::grabFromString(string inp, long double& startRef,
 			}
 		} else if (buffer == "%ac" || buffer == "%appconf") {
 			ifs >> buffer;
-			if (buffer == "true" || buffer == "t")
-				appendConfigRef = true;
-			else if (buffer == "false" || buffer == "f")
-				appendConfigRef = false;
+			if (buffer == "none" || buffer == "n" || buffer == "false" || buffer == "f")
+				appendConfigRef = 0;
+			else if (buffer == "upper" || buffer == "u")
+				appendConfigRef = 1;
+			else if (buffer == "both" || buffer == "b")
+				appendConfigRef = 2;
 			else {
 				cout << "InputParser: CRITICAL WARNING: "
 						<< "Bad word after %appconf: " << buffer

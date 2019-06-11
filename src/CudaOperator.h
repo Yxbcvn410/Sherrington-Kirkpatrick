@@ -29,7 +29,7 @@ private:
 public:
 	CudaOperator(Matrix matrix, int blockCount, float _minDiff);
 	void cudaLoadSpinset(Spinset spinset, int index);
-	void cudaPull(float pStep);
+	void cudaPull(float pStep, float linearCoef);
 	double extractHamiltonian(int index);
 	Spinset extractSpinset(int index);
 	void cudaClear();
