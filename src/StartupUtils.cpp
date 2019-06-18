@@ -77,8 +77,10 @@ int StartupUtils::grabFromString(string inp, long double& startRef,
 				|| buffer == "%initrand") {
 			string buf;
 			ifs >> buf;
-			if (buf == "true" || buf == "t")
+			if (buf == "true" || buf == "t"){
 				srand(time(0));
+				cout << "InputParser: MESSAGE: Random initialized." << endl;
+			}
 			else if (buf == "false" || buf == "f")
 				srand(0);
 			else {

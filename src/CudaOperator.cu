@@ -170,7 +170,6 @@ __global__ void cudaKernelPull(float* mat, float* spins, int size, float* temp,
 				__syncthreads();
 
 				// Parallelized mean-field computation
-				float meanField = 0;
 				long long offset = 1;
 				while (offset < unemptyCells[spinId * (size + 1)]) {
 					wIndex = thrId;
@@ -184,11 +183,11 @@ __global__ void cudaKernelPull(float* mat, float* spins, int size, float* temp,
 					offset *= 2;
 					__syncthreads();
 				}
-				if (thrId == 0)
-					meanField = meanFieldElements[blockId * size];
+				__syncthreads();
 
 				// Mean-field calculation complete - write new spin and delta
 				if (thrId == 0) {
+					float meanField = meanFieldElements[blockId * size];
 					float old = spins[spinId + blockId * size];
 					if (temp[blockId] > 0) {
 						spins[spinId + blockId * size] = -1

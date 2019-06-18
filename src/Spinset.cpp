@@ -19,16 +19,9 @@ Spinset::Spinset(int size) {
 	temp = 0;
 }
 
-void Spinset::Randomize(bool bin) {
-	for (int i = 0; i < size; ++i) {
-		if (bin)
-			if (rand() > 0.5)
-				spins[i] = 1;
-			else
-				spins[i] = -1;
-		else
+void Spinset::Randomize() {
+	for (int i = 0; i < size; ++i)
 			spins[i] = (rand() / (float) RAND_MAX) * 2 - 1;
-	}
 }
 
 void Spinset::SetSpin(int index, float value) {

@@ -19,7 +19,7 @@ private:
 public:
 	float temp;
 	Spinset(int size);
-	void Randomize(bool bin);
+	void Randomize();
 	void SetSpin(int index, float value);
 	const string getSpins();
 	const float* getArray();
