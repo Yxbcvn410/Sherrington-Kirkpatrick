@@ -1,5 +1,5 @@
 #define VERSION 5.2
-#define BUILD 111
+#define BUILD 112
 
 #include <stdio.h>
 #include <iostream>
@@ -110,7 +110,7 @@ void saveMinData(string dir, Matrice matrix, long double dTemp,
 			<< getTimeString(difftime(time(NULL), start)) << endl;
 	spinWriter.flush();
 	spinWriter.close();
-	if(plot)
+	if (plot)
 		Plotter::doPlot(dir + "/plot.txt");
 }
 
@@ -185,7 +185,7 @@ int main(int argc, char* argv[]) {
 	}
 	if (!FileExists(dir)) {
 		makeDirectory(dir);
-		cout << "Made directory " << dir << endl;
+		cout << "Made directory \'" << dir << "\', see log.txt file there for further information" << endl;
 	}
 
 	logWriter.open(dir + "/log.txt", ios::out | ios::app);
@@ -199,7 +199,8 @@ int main(int argc, char* argv[]) {
 	fs.flush();
 
 // Init plot, clock, CUDA, CLI
-	FilesystemProvider::makeFile(ComposeFilename(dir, "img", ".png"));
+	if (doPlot)
+		FilesystemProvider::makeFile(ComposeFilename(dir, "img", ".png"));
 	Plotter::InitScriptfile(dir + "/plot.txt",
 			ComposeFilename(dir, "img", ".png"), "Hamiltonian");
 	ofstream hamiltonianWriter(
@@ -270,13 +271,16 @@ int main(int argc, char* argv[]) {
 				<< endl << endl;
 		hamiltonianWriter.flush();
 		maxcutWriter.flush();
-		saveMinData(dir, matrice, dTemp, spins.temp, pointIndex, blockCount, doPlot);
+		saveMinData(dir, matrice, dTemp, spins.temp, pointIndex, blockCount,
+				doPlot);
 	}
 
 // Disable output && write data to log
 	progress = -1;
 	logWriter << "Calculation complete in "
 			<< getTimeString(difftime(time(NULL), start)) << endl;
+	cout << "Calculation complete in "
+				<< getTimeString(difftime(time(NULL), start)) << endl;
 	if (appendConfig != 0) {
 		ofstream config_ofs(
 				(FilesystemProvider::getCurrentWorkingDirectory() + "/config").c_str(),
