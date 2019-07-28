@@ -18,8 +18,9 @@ using namespace FilesystemProvider;
 
 int StartupUtils::grabFromString(string inp, long double& startRef,
 		long double& endRef, long& pointCountRef, double& pStepRef,
-		Matrix& matrixRef, int& blockCountRef, string& wDirRef, bool& cliRef,
-		float& minDiffRef, int& appendConfigRef, float& linearCoefRef) {
+		Matrice& matrixRef, int& blockCountRef, string& wDirRef, bool& cliRef,
+		float& minDiffRef, int& appendConfigRef, float& linearCoefRef,
+		bool& doPlot) {
 	istringstream ifs = istringstream(inp);
 	string buffer;
 	bool countDefinedAsStep = false;
@@ -33,8 +34,7 @@ int StartupUtils::grabFromString(string inp, long double& startRef,
 		} else if (buffer == "%step") {
 			ifs >> cStep;
 			countDefinedAsStep = true;
-		} else if (buffer == "%md" || buffer == "%mdiff"
-				|| buffer == "%mindiff") {
+		} else if (buffer == "%md" || buffer == "%mindiff") {
 			ifs >> minDiffRef;
 		} else if (buffer == "%c" || buffer == "%count") {
 			ifs >> pointCountRef;
@@ -48,7 +48,7 @@ int StartupUtils::grabFromString(string inp, long double& startRef,
 		} else if (buffer == "%msize" || buffer == "%ms") {
 			int size;
 			ifs >> size;
-			matrixRef = Matrix(size);
+			matrixRef = Matrice(size);
 			matrixRef.Randomize();
 		} else if (buffer == "%wdir" || buffer == "%wd" || buffer == "%dir") {
 			ifs >> wDirRef;
@@ -64,24 +64,22 @@ int StartupUtils::grabFromString(string inp, long double& startRef,
 						<< endl;
 				return -1;
 			} else if (buffer == "%ml_b" || buffer == "%mloc_b") {
-				cout << "InputParser: MESSAGE: Started building matrix."
+				cout << "InputParser: MESSAGE: Started building matrice."
 						<< endl;
 				matrixRef.buildMat(ifstream(loc));
 			} else {
-				cout << "InputParser: MESSAGE: Started building matrix."
+				cout << "InputParser: MESSAGE: Started building matrice."
 						<< endl;
-				matrixRef = Matrix(ifstream(loc));
+				matrixRef = Matrice(ifstream(loc));
 			}
-			cout << "InputParser: MESSAGE: Matrix loaded successfully" << endl;
-		} else if (buffer == "%ird" || buffer == "%irand" || buffer == "%initrd"
-				|| buffer == "%initrand") {
+			cout << "InputParser: MESSAGE: Matrice loaded successfully" << endl;
+		} else if (buffer == "%ird" || buffer == "%initrand") {
 			string buf;
 			ifs >> buf;
-			if (buf == "true" || buf == "t"){
+			if (buf == "true" || buf == "t") {
 				srand(time(0));
 				cout << "InputParser: MESSAGE: Random initialized." << endl;
-			}
-			else if (buf == "false" || buf == "f")
+			} else if (buf == "false" || buf == "f")
 				srand(0);
 			else {
 				cout << "InputParser: CRITICAL WARNING: "
@@ -99,9 +97,20 @@ int StartupUtils::grabFromString(string inp, long double& startRef,
 						<< "Bad word after %cli: " << buffer
 						<< ", line ignored." << endl;
 			}
+		} else if (buffer == "%plot") {
+			ifs >> buffer;
+			if (buffer == "true" || buffer == "t")
+				doPlot = true;
+			else if (buffer == "false" || buffer == "f")
+				doPlot = false;
+			else {
+				cout << "InputParser: CRITICAL WARNING: "
+						<< "Bad word after %cli: " << buffer
+						<< ", line ignored." << endl;
+			}
 		} else if (buffer == "%ac" || buffer == "%appconf") {
 			ifs >> buffer;
-			if (buffer == "none" || buffer == "n" || buffer == "false" || buffer == "f")
+			if (buffer == "none" || buffer == "n")
 				appendConfigRef = 0;
 			else if (buffer == "upper" || buffer == "u")
 				appendConfigRef = 1;
@@ -138,7 +147,7 @@ int StartupUtils::grabFromString(string inp, long double& startRef,
 		exitCode = 1;
 	}
 	if (matrixRef.getSize() == 2) {
-		cout << "InputParser: WARNING: " << "Matrix not defined" << endl;
+		cout << "InputParser: WARNING: " << "Matrice not defined" << endl;
 		exitCode = 1;
 	}
 	return exitCode;

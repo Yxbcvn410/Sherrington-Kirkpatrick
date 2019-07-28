@@ -1,5 +1,5 @@
-#define VERSION 5.1
-#define BUILD 108
+#define VERSION 5.2
+#define BUILD 111
 
 #include <stdio.h>
 #include <iostream>
@@ -9,7 +9,7 @@
 #include <unistd.h>
 #include <ctime>
 #include <cmath>
-#include "Matrix.h"
+#include "Matrice.h"
 #include "Spinset.h"
 #include "FilesystemProvider.h"
 #include "Plotter.h"
@@ -88,8 +88,8 @@ void CLIControl() {
 			<< endl;
 }
 
-void saveMinData(string dir, Matrix matrix, long double dTemp,
-		long double upTemp, long count, int blockCount) {
+void saveMinData(string dir, Matrice matrix, long double dTemp,
+		long double upTemp, long count, int blockCount, bool plot) {
 	ofstream spinWriter;
 	if (FilesystemProvider::FileExists(dir + "/spins.txt"))
 		system(("rm -rf " + dir + "/spins.txt").c_str());
@@ -110,7 +110,8 @@ void saveMinData(string dir, Matrix matrix, long double dTemp,
 			<< getTimeString(difftime(time(NULL), start)) << endl;
 	spinWriter.flush();
 	spinWriter.close();
-	Plotter::doPlot(dir + "/plot.txt");
+	if(plot)
+		Plotter::doPlot(dir + "/plot.txt");
 }
 
 int main(int argc, char* argv[]) {
@@ -118,7 +119,7 @@ int main(int argc, char* argv[]) {
 			<< BUILD << endl;
 
 	//Init model
-	Matrix matrix(2);
+	Matrice matrice(2);
 	string dir = "";
 	long double dTemp = 0;
 	long double upTemp = -1;
@@ -131,6 +132,7 @@ int main(int argc, char* argv[]) {
 	float minimDiff = 0.01;
 	int appendConfig = 0;
 	float linearCoef = 1;
+	bool doPlot = false;
 
 	//Append config file
 	cout
@@ -159,9 +161,9 @@ int main(int argc, char* argv[]) {
 
 	cout << "Parsing..." << endl;
 	exitCode = StartupUtils::grabFromString(oss.str(), ref(dTemp), ref(upTemp),
-			ref(pointCount), ref(pullStep), ref(matrix), ref(blockCount),
+			ref(pointCount), ref(pullStep), ref(matrice), ref(blockCount),
 			ref(dir), ref(cliActive), ref(minimDiff), ref(appendConfig),
-			ref(linearCoef));
+			ref(linearCoef), ref(doPlot));
 	if (exitCode == -1)
 		exit(-1);
 	cout << "Parsing complete." << endl;
@@ -175,7 +177,7 @@ int main(int argc, char* argv[]) {
 
 	if (dir == "auto" || dir == "-a") {
 		ostringstream oss;
-		oss << "calc" << matrix.getSize() << "_";
+		oss << "calc" << matrice.getSize() << "_";
 		int dirIndex = FreeFileIndex(getCurrentWorkingDirectory(), oss.str(),
 				"", false);
 		oss << dirIndex;
@@ -188,12 +190,12 @@ int main(int argc, char* argv[]) {
 
 	logWriter.open(dir + "/log.txt", ios::out | ios::app);
 
-	logWriter << "Matrix loaded, size " << matrix.getSize()
+	logWriter << "Matrice loaded, size " << matrice.getSize()
 			<< ", will evaluate " << pointCount << " points." << endl;
 
 	fstream fs;
 	fs.open(ComposeFilename(dir, "mat", ".txt"), ios::out);
-	fs << matrix.getMatrix();
+	fs << matrice.getMatrix();
 	fs.flush();
 
 // Init plot, clock, CUDA, CLI
@@ -209,7 +211,7 @@ int main(int argc, char* argv[]) {
 	ofstream maxcutWriter(ComposeFilename(dir, "data_maxcut", ".txt"));
 	maxcutWriter << " " << endl;
 
-	CudaOperator op = CudaOperator(matrix, blockCount, minimDiff);
+	CudaOperator op = CudaOperator(matrice, blockCount, minimDiff);
 	start = time(NULL);
 	if (cliActive) {
 		thread th(CLIControl);
@@ -217,7 +219,7 @@ int main(int argc, char* argv[]) {
 	}
 
 // Start calculations
-	Spinset spins(matrix.getSize());
+	Spinset spins(matrice.getSize());
 	for (long pointIndex = 0; pointIndex < pointCount;) {
 		logWriter << "[" << getTimeString(time(NULL) - start) << "] "
 				<< "Starting pull session. Loading spinsets..." << endl;
@@ -255,7 +257,7 @@ int main(int argc, char* argv[]) {
 				minCount++;
 			}
 			hamiltonianWriter << fabs(spins.temp) << "\t" << nrg << " \n";
-			maxcutWriter << (matrix.getSum() - nrg) / 2.0 << ", \n";
+			maxcutWriter << (matrice.getSum() - nrg) / 2.0 << ", \n";
 			pointIndex++;
 		}
 		progress = (spins.temp * spins.temp - dTemp * dTemp)
@@ -268,7 +270,7 @@ int main(int argc, char* argv[]) {
 				<< endl << endl;
 		hamiltonianWriter.flush();
 		maxcutWriter.flush();
-		saveMinData(dir, matrix, dTemp, spins.temp, pointIndex, blockCount);
+		saveMinData(dir, matrice, dTemp, spins.temp, pointIndex, blockCount, doPlot);
 	}
 
 // Disable output && write data to log

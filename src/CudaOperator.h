@@ -8,7 +8,7 @@
 #ifndef CUDAOPERATIONS_H_
 #define CUDAOPERATIONS_H_
 
-#include "Matrix.h"
+#include "Matrice.h"
 #include "Spinset.h"
 
 class CudaOperator {
@@ -27,7 +27,7 @@ private:
 	int blockCount;
 	float minDiff;
 public:
-	CudaOperator(Matrix matrix, int blockCount, float _minDiff);
+	CudaOperator(Matrice matrix, int blockCount, float _minDiff);
 	void cudaLoadSpinset(Spinset spinset, int index);
 	void cudaPull(float pStep, float linearCoef);
 	double extractHamiltonian(int index);

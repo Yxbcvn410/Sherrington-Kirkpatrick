@@ -5,7 +5,7 @@
  *      Author: alexander
  */
 
-#include "Matrix.h"
+#include "Matrice.h"
 #include "Spinset.h"
 #include "CudaOperator.h"
 #include <cuda_runtime.h>
@@ -21,7 +21,7 @@ void checkError(cudaError_t err, string arg = "") {
 	}
 }
 
-CudaOperator::CudaOperator(Matrix _matrix, int _blockCount, float _minDiff) {
+CudaOperator::CudaOperator(Matrice _matrix, int _blockCount, float _minDiff) {
 	minDiff = _minDiff;
 	// Set pointers to null
 	devSpins = NULL;

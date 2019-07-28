@@ -5,14 +5,14 @@
  *      Author: alexander
  */
 
-#include "Matrix.h"
+#include "Matrice.h"
 #include <stdio.h>
 #include <iostream>
 #include <sstream>
 #include <fstream>
 #include <cmath>
 
-Matrix::Matrix(int size) {
+Matrice::Matrice(int size) {
 	this->size = size;
 	matrix = new float[size * size];
 	unemptyMat = new int[size * (size + 1)];
@@ -24,7 +24,7 @@ Matrix::Matrix(int size) {
 	sum = 0;
 }
 
-Matrix::Matrix(ifstream fs) {
+Matrice::Matrice(ifstream fs) {
 	int ss;
 	fs >> ss;
 	size = ss;
@@ -38,18 +38,22 @@ Matrix::Matrix(ifstream fs) {
 	}
 	for (int i = 0; i < size; ++i) {
 		for (int j = 0; j < size; ++j) {
-			fs >> matrix[i * size + j];
-			matrix[j * size + i] = matrix[i * size + j];
-			unemptyMat[i * (size + 1)]++;
-			unemptyMat[i * (size + 1) + unemptyMat[i * (size + 1)]] = j;
-			unemptyMat[j * (size + 1)]++;
-			unemptyMat[j * (size + 1) + unemptyMat[j * (size + 1)]] = i;
-			sum += matrix[i * size + j];
+			float cell;
+			fs >> cell;
+			if (i <= j) {
+				matrix[i * size + j] = cell;
+				matrix[j * size + i] = cell;
+				unemptyMat[i * (size + 1)]++;
+				unemptyMat[i * (size + 1) + unemptyMat[i * (size + 1)]] = j;
+				unemptyMat[j * (size + 1)]++;
+				unemptyMat[j * (size + 1) + unemptyMat[j * (size + 1)]] = i;
+				sum += cell * 2;
+			}
 		}
 	}
 }
 
-void Matrix::Randomize() {
+void Matrice::Randomize() {
 	float f;
 	sum = 0;
 	for (int var = 0; var < size * (size + 1); ++var) {
@@ -70,13 +74,13 @@ void Matrix::Randomize() {
 	}
 }
 
-int Matrix::getSize() {
+int Matrice::getSize() {
 	int s;
 	s = size;
 	return s;
 }
 
-string Matrix::getMatrix() {
+string Matrice::getMatrix() {
 	ostringstream out;
 	out << size << "\n";
 	for (int i = 0; i < size; ++i) {
@@ -88,7 +92,7 @@ string Matrix::getMatrix() {
 	return out.str();
 }
 
-void Matrix::buildMat(ifstream ifs) {
+void Matrice::buildMat(ifstream ifs) {
 	sum = 0;
 	ifs >> size;
 	matrix = new float[size * size];
@@ -116,14 +120,14 @@ void Matrix::buildMat(ifstream ifs) {
 	}
 }
 
-float Matrix::getSum() {
+float Matrice::getSum() {
 	return sum;
 }
 
-float* Matrix::getArray() {
+float* Matrice::getArray() {
 	return matrix;
 }
 
-int* Matrix::getUnemptyMat() {
+int* Matrice::getUnemptyMat() {
 	return unemptyMat;
 }

@@ -6,7 +6,7 @@
  */
 
 #include "Spinset.h"
-#include "Matrix.h"
+#include "Matrice.h"
 #include "CudaOperator.h"
 #include <stdio.h>
 #include <iostream>

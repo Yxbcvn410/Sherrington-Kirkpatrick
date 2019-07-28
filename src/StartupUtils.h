@@ -7,12 +7,12 @@
 
 #ifndef STARTUPUTILS_H_
 #define STARTUPUTILS_H_
-#include "Matrix.h"
+#include "Matrice.h"
 
 namespace StartupUtils {
 int grabFromString(string inp, long double& startRef, long double& endRef,
-		long& pointCountRef, double& pStepRef, Matrix& matrixRef,
-		int& blockCountRef, string& wDirRef, bool& cliRef, float& minDiffRef, int& appendConfigRef, float& linearCoefRef);
+		long& pointCountRef, double& pStepRef, Matrice& matriceRef,
+		int& blockCountRef, string& wDirRef, bool& cliRef, float& minDiffRef, int& appendConfigRef, float& linearCoefRef, bool& doPlot);
 }
 
 #endif /* STARTUPUTILS_H_ */

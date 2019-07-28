@@ -8,7 +8,7 @@ CU_SRCS += \
 
 CPP_SRCS += \
 ../src/FilesystemProvider.cpp \
-../src/Matrix.cpp \
+../src/Matrice.cpp \
 ../src/Plotter.cpp \
 ../src/Spinset.cpp \
 ../src/StartupUtils.cpp \
@@ -17,7 +17,7 @@ CPP_SRCS += \
 OBJS += \
 ./src/CudaOperator.o \
 ./src/FilesystemProvider.o \
-./src/Matrix.o \
+./src/Matrice.o \
 ./src/Plotter.o \
 ./src/Spinset.o \
 ./src/StartupUtils.o \
@@ -28,7 +28,7 @@ CU_DEPS += \
 
 CPP_DEPS += \
 ./src/FilesystemProvider.d \
-./src/Matrix.d \
+./src/Matrice.d \
 ./src/Plotter.d \
 ./src/Spinset.d \
 ./src/StartupUtils.d \

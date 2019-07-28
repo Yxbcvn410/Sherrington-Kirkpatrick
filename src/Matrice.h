@@ -11,15 +11,15 @@
 #include <fstream>
 using namespace std;
 
-class Matrix {
+class Matrice {
 private:
 	int size;
 	float* matrix;
 	int* unemptyMat;
 	float sum;
 public:
-	Matrix(int size);
-	Matrix(ifstream fs);
+	Matrice(int size);
+	Matrice(ifstream fs);
 	void buildMat(ifstream ifs);
 	void Randomize();
 	string getMatrix();
