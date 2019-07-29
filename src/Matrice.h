@@ -1,12 +1,12 @@
 /*
- * Matrix.h
+ * Matrice.h
  *
  *  Created on: Jan 28, 2019
  *      Author: alexander
  */
 
-#ifndef MATRIX_H_
-#define MATRIX_H_
+#ifndef MATRICE_H_
+#define MATRICE_H_
 #include <iostream>
 #include <fstream>
 using namespace std;
@@ -14,7 +14,7 @@ using namespace std;
 class Matrice {
 private:
 	int size;
-	float* matrix;
+	float* matrice;
 	int* unemptyMat;
 	float sum;
 public:
@@ -22,11 +22,11 @@ public:
 	Matrice(ifstream fs);
 	void buildMat(ifstream ifs);
 	void Randomize();
-	string getMatrix();
+	string getMatriceText();
 	int getSize();
 	float* getArray();
 	float getSum();
 	int* getUnemptyMat();
 };
 
-#endif /* MATRIX_H_ */
+#endif /* MATRICE_H_ */

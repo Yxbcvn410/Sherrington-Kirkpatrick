@@ -1,5 +1,5 @@
 #define VERSION 5.2
-#define BUILD 112
+#define BUILD 113
 
 #include <stdio.h>
 #include <iostream>
@@ -195,7 +195,7 @@ int main(int argc, char* argv[]) {
 
 	fstream fs;
 	fs.open(ComposeFilename(dir, "mat", ".txt"), ios::out);
-	fs << matrice.getMatrix();
+	fs << matrice.getMatriceText();
 	fs.flush();
 
 // Init plot, clock, CUDA, CLI

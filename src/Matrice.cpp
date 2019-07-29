@@ -14,12 +14,12 @@
 
 Matrice::Matrice(int size) {
 	this->size = size;
-	matrix = new float[size * size];
+	matrice = new float[size * size];
 	unemptyMat = new int[size * (size + 1)];
 	for (int var = 0; var < size * (size + 1); ++var) {
 		unemptyMat[var] = 0;
 		if (var < size * size)
-			matrix[var] = 0.;
+			matrice[var] = 0.;
 	}
 	sum = 0;
 }
@@ -29,25 +29,27 @@ Matrice::Matrice(ifstream fs) {
 	fs >> ss;
 	size = ss;
 	sum = 0;
-	matrix = new float[size * size];
+	matrice = new float[size * size];
 	unemptyMat = new int[size * (size + 1)];
 	for (int var = 0; var < size * (size + 1); ++var) {
 		unemptyMat[var] = 0;
 		if (var < size * size)
-			matrix[var] = 0.;
+			matrice[var] = 0.;
 	}
 	for (int i = 0; i < size; ++i) {
 		for (int j = 0; j < size; ++j) {
 			float cell;
 			fs >> cell;
 			if (i <= j) {
-				matrix[i * size + j] = cell;
-				matrix[j * size + i] = cell;
-				unemptyMat[i * (size + 1)]++;
-				unemptyMat[i * (size + 1) + unemptyMat[i * (size + 1)]] = j;
-				unemptyMat[j * (size + 1)]++;
-				unemptyMat[j * (size + 1) + unemptyMat[j * (size + 1)]] = i;
-				sum += cell * 2;
+				matrice[i * size + j] = cell;
+				matrice[j * size + i] = cell;
+				if (cell != 0.) {
+					unemptyMat[i * (size + 1)]++;
+					unemptyMat[i * (size + 1) + unemptyMat[i * (size + 1)]] = j;
+					unemptyMat[j * (size + 1)]++;
+					unemptyMat[j * (size + 1) + unemptyMat[j * (size + 1)]] = i;
+				}
+				sum += cell;
 			}
 		}
 	}
@@ -63,13 +65,15 @@ void Matrice::Randomize() {
 		for (int j = i + 1; j < size; ++j) {
 			f = rand() / (float) RAND_MAX;
 			f = f * 2 - 1;
-			matrix[i * size + j] = f;
-			matrix[j * size + i] = matrix[i * size + j];
-			unemptyMat[i * (size + 1)]++;
-			unemptyMat[i * (size + 1) + unemptyMat[i * (size + 1)]] = j;
-			unemptyMat[j * (size + 1)]++;
-			unemptyMat[j * (size + 1) + unemptyMat[j * (size + 1)]] = i;
-			sum += matrix[i * size + j];
+			matrice[i * size + j] = f;
+			matrice[j * size + i] = matrice[i * size + j];
+			if (f != 0.) {
+				unemptyMat[i * (size + 1)]++;
+				unemptyMat[i * (size + 1) + unemptyMat[i * (size + 1)]] = j;
+				unemptyMat[j * (size + 1)]++;
+				unemptyMat[j * (size + 1) + unemptyMat[j * (size + 1)]] = i;
+			}
+			sum += matrice[i * size + j];
 		}
 	}
 }
@@ -80,12 +84,12 @@ int Matrice::getSize() {
 	return s;
 }
 
-string Matrice::getMatrix() {
+string Matrice::getMatriceText() {
 	ostringstream out;
 	out << size << "\n";
 	for (int i = 0; i < size; ++i) {
 		for (int j = 0; j < size; ++j) {
-			out << matrix[i * size + j] << " ";
+			out << matrice[i * size + j] << " ";
 		}
 		out << "\n";
 	}
@@ -95,12 +99,12 @@ string Matrice::getMatrix() {
 void Matrice::buildMat(ifstream ifs) {
 	sum = 0;
 	ifs >> size;
-	matrix = new float[size * size];
+	matrice = new float[size * size];
 	unemptyMat = new int[size * (size + 1)];
 	for (int var = 0; var < size * (size + 1); ++var) {
 		unemptyMat[var] = 0;
 		if (var < size * size)
-			matrix[var] = 0.;
+			matrice[var] = 0.;
 	}
 	int i, j, val, edges;
 	ifs >> edges;
@@ -110,12 +114,14 @@ void Matrice::buildMat(ifstream ifs) {
 		ifs >> val;
 		i -= 1;
 		j -= 1;
-		matrix[i * size + j] = val;
-		matrix[j * size + i] = val;
-		unemptyMat[i * (size + 1)]++;
-		unemptyMat[i * (size + 1) + unemptyMat[i * (size + 1)]] = j;
-		unemptyMat[j * (size + 1)]++;
-		unemptyMat[j * (size + 1) + unemptyMat[j * (size + 1)]] = i;
+		matrice[i * size + j] = val;
+		matrice[j * size + i] = val;
+		if (val != 0.) {
+			unemptyMat[i * (size + 1)]++;
+			unemptyMat[i * (size + 1) + unemptyMat[i * (size + 1)]] = j;
+			unemptyMat[j * (size + 1)]++;
+			unemptyMat[j * (size + 1) + unemptyMat[j * (size + 1)]] = i;
+		}
 		sum += val;
 	}
 }
@@ -125,7 +131,7 @@ float Matrice::getSum() {
 }
 
 float* Matrice::getArray() {
-	return matrix;
+	return matrice;
 }
 
 int* Matrice::getUnemptyMat() {
